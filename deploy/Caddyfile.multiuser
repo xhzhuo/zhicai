@@ -1,0 +1,21 @@
+{
+    default_sni {$ZHICAI_PUBLIC_IP}
+}
+
+{$ZHICAI_PUBLIC_IP} {
+    tls {
+        issuer acme {
+            profile shortlived
+            timeout 3m
+        }
+    }
+
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy no-referrer
+    }
+
+    reverse_proxy 127.0.0.1:8765
+}

@@ -1,0 +1,9 @@
+.git
+.venv
+work
+app/data
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+自动化工具参考
+

@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>智采 cloud · 数据获取工作台</title>
+<style>
+:root{--primary:#4263eb;--primary-dark:#3252d5;--soft:#edf1ff;--ink:#202b41;--text:#52617a;--muted:#8b97aa;--line:#e7ecf3;--bg:#f5f7fb;--green:#128767;--green-bg:#eaf7f1;--amber:#ae751e;--amber-bg:#fff6e6;--red:#c85160;--red-bg:#fff0f2;--shadow:0 3px 18px #243c6305;--font:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.65 var(--font);-webkit-font-smoothing:antialiased}button,input,textarea,select{font:inherit}button{cursor:pointer;color:inherit}button:disabled{cursor:not-allowed;opacity:.48}a{color:var(--primary)}button,input,textarea,select,a{outline:none}button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,a:focus-visible,summary:focus-visible{outline:3px solid #a8b7ff;outline-offset:3px}button{transition:background .13s,border-color .13s}h1,h2,h3,p{margin:0}h1{font-size:27px;font-weight:650;letter-spacing:-.7px;line-height:1.45}h2{font-size:15px;font-weight:600}h3{font-size:15px;font-weight:600}.icon{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;vertical-align:middle;flex-shrink:0}.i14{width:14px;height:14px}.i16{width:16px;height:16px}.i20{width:20px;height:20px}.hidden{display:none!important}.muted{color:var(--muted)}.small{font-size:11px}.mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px}.flex{display:flex;align-items:center;gap:8px}.between{display:flex;align-items:center;justify-content:space-between;gap:12px}.wrap{flex-wrap:wrap}.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 13px;border:1px solid #dfe5ef;border-radius:7px;background:#fff;color:#53627b;font-size:12px;font-weight:500;white-space:nowrap}.btn:hover:not(:disabled){background:#f7f9fd;border-color:#cbd5e6}.btn.primary{color:#fff;background:var(--primary);border-color:var(--primary);box-shadow:0 2px 6px #4263eb17}.btn.primary:hover:not(:disabled){background:var(--primary-dark);border-color:var(--primary-dark)}.btn.ghost{background:transparent;border-color:transparent}.btn.ghost:hover:not(:disabled){background:#edf1f8}.btn.sm{font-size:11px;padding:5px 10px}.btn.danger{color:var(--red);border-color:#f0d5da}.text-btn{padding:0;border:0;background:none;color:var(--primary);font-size:12px;display:inline-flex;align-items:center;gap:4px}.text-btn:hover:not(:disabled){text-decoration:underline}.icon-btn{height:30px;width:30px;display:inline-grid;place-items:center;background:transparent;border:0;border-radius:6px;color:#8592a6}.icon-btn:hover{background:#eff3f9}.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:5px;background:#eff3f8;font-size:10px;line-height:1.65;color:#77859a;white-space:nowrap}.pill.blue{color:var(--primary);background:var(--soft)}.pill.green{color:var(--green);background:var(--green-bg)}.pill.amber{color:var(--amber);background:var(--amber-bg)}.pill.red{color:var(--red);background:var(--red-bg)}.dot{width:5px;height:5px;border-radius:50%;background:currentColor;display:inline-block;flex-shrink:0}.avatar{width:31px;height:31px;border-radius:50%;display:inline-grid;place-items:center;background:#eaf0ff;color:#5d75c7;font-weight:600;font-size:12px;flex-shrink:0}.panel{background:white;border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow);min-width:0}.panel-head{height:57px;padding:0 21px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line)}.panel-head h2{display:flex;align-items:center;gap:8px;font-size:13px}.step{font-size:10px;color:#7b8fae;background:#eff3fb;width:18px;height:18px;display:inline-grid;place-items:center;border-radius:4px}.sidebar{width:202px;position:fixed;inset:0 auto 0 0;z-index:30;background:#fcfdff;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:27px 14px 18px}.brand{display:flex;align-items:center;gap:10px;padding:0 8px}.brand-mark{width:34px;height:34px;border-radius:10px;background:var(--primary);color:white;display:grid;place-items:center;box-shadow:0 4px 10px #4263eb20}.brand-mark .icon{width:23px;height:23px}.brand-name{font-size:23px;letter-spacing:-1px;font-weight:730;line-height:1.2}.brand-name span{font-size:11px;font-weight:400;letter-spacing:.3px;color:#8090a7;margin-left:4px}.brand-sub{font-size:8px;letter-spacing:1.7px;color:#9ba8ba;padding:9px 0 0 51px}.workspace{margin:28px 2px 25px;border:1px solid var(--line);border-radius:8px;background:white;padding:10px;display:flex;align-items:center;gap:8px}.workspace .box{width:28px;height:28px;border-radius:6px;background:#f0f4fa;color:#8091ac;display:grid;place-items:center}.workspace strong{font-size:10px;font-weight:600}.workspace small{font-size:9px;color:var(--muted);display:block}.nav-label{font-size:9px;letter-spacing:1px;color:#a0adbf;margin:0 12px 9px}.nav-btn{width:100%;display:flex;align-items:center;gap:9px;background:transparent;border:0;border-radius:7px;text-align:left;padding:11px 12px;margin-bottom:4px;font-size:12px;color:#7d8ba3;position:relative}.nav-btn:hover{background:#f1f5fb}.nav-btn.active{background:var(--soft);color:var(--primary);font-weight:550}.nav-btn.active:before{content:"";position:absolute;left:0;top:13px;height:17px;width:3px;background:var(--primary);border-radius:3px}.nav-btn .count{margin-left:auto;font-size:10px;color:#94a0b4}.nav-divider{height:1px;background:var(--line);margin:22px 10px}.side-tools{margin-top:12px}.side-tools .nav-btn{font-size:11px;padding:8px 12px;margin:0}.side-tools .nav-btn .icon{width:15px;height:15px}.side-tools .nav-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.side-bottom{margin-top:auto;padding:24px 4px 0}.local-note{background:#f3f6fb;border-radius:8px;padding:11px;color:#8b97ab;font-size:9px;line-height:1.9}.local-note strong{font-weight:500;color:#71829b;display:block;font-size:10px;margin-bottom:2px}.side-user{display:flex;align-items:center;gap:8px;margin-top:17px}.side-user strong{font-size:11px;font-weight:500;display:block}.side-user small{font-size:9px;color:#9aa7b9}.app{margin-left:202px;min-height:100vh}.topbar{height:64px;background:#ffffffd9;border-bottom:1px solid var(--line);padding:0 30px;display:flex;align-items:center;justify-content:space-between;gap:16px}.breadcrumb{display:flex;align-items:center;gap:9px;font-size:11px;color:#9ca7b9}.breadcrumb button{border:0;background:transparent;color:#8593a8;padding:0;font-size:11px}.breadcrumb b{color:#5d6d85;font-weight:400}.top-actions{display:flex;align-items:center;gap:13px}.demo-badge{font-size:10px;color:#9b8257;background:#fbf8f1;border:1px solid #eee6d8;padding:3px 8px;border-radius:5px;white-space:nowrap}.identity-label{font-size:10px;color:#9aa6b8}.identity{border:0;background:transparent;color:#57677e;padding:4px 16px 4px 1px;font-size:11px;max-width:170px}.main{padding:27px 30px 20px;max-width:1600px;margin:auto}.heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:23px}.heading .eyebrow{font-size:9px;letter-spacing:1.8px;color:#8ea0be;margin-bottom:7px}.heading p{font-size:12px;color:#8b98ad;margin-top:8px}.heading-actions{display:flex;gap:8px;align-items:center;padding-top:7px}.heading-icon{width:38px;height:38px;border:1px solid #e0e8ff;background:#edf2ff;color:var(--primary);border-radius:10px;display:grid;place-items:center}.heading-icon .icon{width:22px;height:22px}.page-foot{display:flex;justify-content:space-between;gap:14px;color:#a3afc0;font-size:9px;margin:18px 1px 0}.page-foot .icon{width:12px;height:12px}.filter-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;background:white;border:1px solid var(--line);padding:14px 17px;border-radius:10px;margin-bottom:21px}.filter-title{font-size:11px;color:#8d9bb0;margin-right:7px;white-space:nowrap}.platforms{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.platform-chip{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#7b89a0;padding:6px 11px;border:1px solid transparent;border-radius:6px;background:transparent;white-space:nowrap}.platform-chip:hover{background:#f5f7fb}.platform-chip.active{color:var(--primary);background:var(--soft);border-color:#e6ebff;font-weight:500}.platform-chip small{font-size:9px;border-radius:3px;background:#f2f5f9;min-width:16px;text-align:center;padding:0 3px;color:#9aa8b9}.platform-chip.active small{background:#e1e8ff;color:#6982e0}.search{display:flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:6px;padding:6px 9px;max-width:220px;background:#fcfdff;color:#98a6ba}.search input{border:0;background:transparent;color:var(--text);width:100%;font-size:11px;min-width:0}.search input::placeholder{color:#abb5c3}.catalog-meta{font-size:11px;color:#8e9bb0;margin:0 2px 13px}.catalog-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px}.tool-card{background:white;border:1px solid var(--line);border-radius:11px;padding:20px;transition:border-color .15s,box-shadow .15s;min-width:0;display:flex;flex-direction:column}.tool-card:hover{border-color:#ccd8f9;box-shadow:0 5px 18px #4263eb08}.platform-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:9px;font-size:11px;font-weight:650;flex-shrink:0}.platform-icon.xhs{background:#fff0f2;color:#db6579}.platform-icon.baidu{background:#edf3ff;color:#587ece}.platform-icon.douyin{background:#eff1f6;color:#56637d}.platform-icon.tmall{background:#fff0e9;color:#d58b52}.tool-card h2{font-size:15px;margin:15px 0 6px;letter-spacing:-.15px}.tool-card .desc{color:#95a0b2;font-size:11px;line-height:1.9;min-height:43px;margin-bottom:17px}.tool-spec{border-radius:7px;background:#f8fafc;padding:9px 11px;font-size:10px;color:#8190a7;display:grid;grid-template-columns:32px minmax(0,1fr);gap:4px}.tool-spec span:nth-child(even){color:#5d6e88;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tool-card-foot{border-top:1px solid #f0f3f8;padding-top:14px;margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;color:#9aa8bb}.tool-card-foot .text-btn{font-size:11px}.catalog-note{padding:13px 17px;border:1px dashed #dce4f1;border-radius:8px;margin-top:21px;color:#95a1b4;font-size:10px;display:flex;align-items:center;gap:9px}.tool-switchbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px}.tool-switchbar select{border:1px solid var(--line);border-radius:6px;padding:6px 9px;background:#fff;color:#60718d;font-size:11px;max-width:190px}.tool-switchbar .separator{height:15px;width:1px;background:#dce3ef;margin:0 4px}.tool-switchbar .hint{font-size:10px;color:#9aa7b9;margin-left:auto}.workbench{display:grid;grid-template-columns:310px minmax(0,1fr);gap:20px;align-items:start}.config-panel{overflow:hidden}.config-body{padding:19px 19px 6px}.source{background:#f8fafd;border:1px solid #edf1f7;border-radius:7px;padding:10px;display:flex;align-items:center;gap:8px;margin-bottom:20px}.source .platform-icon{width:29px;height:29px;font-size:9px;border-radius:7px}.source b{font-size:11px;font-weight:500;display:block}.source small{color:#9ba6b7;font-size:9px}.field{margin-bottom:19px}.field-label{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:11px;color:#53637c;font-weight:550}.field-label .text-btn{font-size:10px;font-weight:400}.required{color:#d4818e;margin-left:3px}.field input:not([type=checkbox]),.field textarea,.field select,.input{border:1px solid #dee5ef;border-radius:6px;background:#fff;width:100%;color:#55657e;padding:8px 10px;font-size:12px;min-width:0}.field textarea{display:block;min-height:160px;resize:vertical;line-height:1.9}.field textarea::placeholder{color:#a7b1c0}.field-hint{font-size:10px;color:#98a6ba;line-height:1.8;margin-top:7px}.field-hint.error{color:var(--red)}.input-actions{display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px}.input-actions .text-btn{font-size:10px}.dates{display:grid;grid-template-columns:minmax(0,1fr) 14px minmax(0,1fr);align-items:center;gap:4px}.dates input{padding:7px 6px!important;font-size:10px!important}.dates span{text-align:center;font-size:10px;color:#a0aec0}.presets{display:flex;gap:7px;margin-top:8px}.presets button{font-size:9px;color:#94a3ba;background:#f4f7fb;border:0;border-radius:4px;padding:3px 7px}.presets button.active{color:var(--primary);background:var(--soft)}.config-footer{padding:17px 19px 18px;background:#fbfcff;border-top:1px solid var(--line)}.config-footer .btn{width:100%;margin-top:10px}.run-summary{font-size:11px;color:#6f83a4}.run-caption{font-size:9px;color:#a3afbf;text-align:center;margin-top:7px}.form-errors{font-size:10px;color:var(--red);background:var(--red-bg);border-radius:6px;padding:8px 10px;margin-bottom:10px}.notice{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:6px;font-size:10px;line-height:1.85;color:#7f95c9;background:#f4f6ff;border:1px solid #eaf0ff}.notice .icon{width:14px;height:14px;margin-top:2px}.notice.amber{color:#ab8544;background:#fffbf2;border-color:#f4ead6}.notice.red{color:var(--red);background:var(--red-bg);border-color:#f3dce1}.results{min-height:577px;display:flex;flex-direction:column;overflow:hidden}.result-body{padding:20px;flex:1;min-width:0}.result-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:20px 0 13px}.result-toolbar h3{font-size:12px}.result-toolbar small{display:block;font-size:10px;color:#9aabc1;margin-top:3px}.run-info-line{display:flex;align-items:center;gap:11px;flex-wrap:wrap;font-size:11px;color:#899ab2;margin:16px 0 14px}.run-info-line strong{font-weight:550;color:#597398}.run-info-line .failed{color:var(--red)}.run-progress{margin:17px 0 13px}.run-progress .between{font-size:11px;color:#7790ad;margin-bottom:9px}.progress-track{height:4px;background:#eef2f9;border-radius:4px;overflow:hidden}.progress-fill{height:100%;background:var(--primary);border-radius:4px;transition:width .2s}.data-wrap{border:1px solid var(--line);border-radius:7px;overflow:auto;max-width:100%}.data-table{border-collapse:collapse;width:100%;font-size:11px;white-space:nowrap}.data-table th{text-align:left;padding:11px 13px;color:#90a0b8;font-weight:400;background:#f8fafd;border-bottom:1px solid var(--line)}.data-table td{padding:12px 13px;border-bottom:1px solid #f0f3f8;color:#63758f;max-width:240px;overflow:hidden;text-overflow:ellipsis}.data-table tr:last-child td{border-bottom:0}.data-table tbody tr:hover{background:#fafcff}.data-table .numeric{text-align:right;font-variant-numeric:tabular-nums}.data-table .row-index{color:#b1bccb;width:39px;font-size:10px}.data-table .cell-text{max-width:210px;overflow:hidden;text-overflow:ellipsis;display:block}.table-caption{display:flex;justify-content:space-between;gap:10px;color:#a0aec1;font-size:9px;margin-top:10px}.run-details{border-top:1px solid var(--line);margin-top:20px;padding-top:12px;color:#92a0b6;font-size:10px}.run-details summary{cursor:pointer;color:#7386a2;font-size:11px}.run-details dl{display:grid;grid-template-columns:70px minmax(0,1fr);gap:7px;margin:11px 0 0}.run-details dt{color:#9daabc}.run-details dd{margin:0;color:#6e829f;word-break:break-word}.result-foot{padding:11px 20px;border-top:1px solid var(--line);background:#fcfdff;display:flex;justify-content:space-between;gap:10px;font-size:9px;color:#a3afc0}.empty{padding:48px 20px;display:flex;flex-direction:column;align-items:center;text-align:center;color:#9aaabd;font-size:11px;gap:10px}.empty .empty-icon{width:48px;height:48px;background:#f0f4fb;color:#9baccc;border-radius:13px;display:grid;place-items:center;margin-bottom:4px}.empty h3{font-size:14px;font-weight:500;color:#6c7f9c}.empty p{max-width:380px;line-height:1.9}.permission-layout{display:grid;grid-template-columns:244px minmax(0,1fr);gap:20px;align-items:start}.member-panel{overflow:hidden}.member-list{padding:8px}.member{width:100%;background:transparent;border:1px solid transparent;border-radius:7px;padding:12px 10px;display:flex;align-items:center;gap:10px;text-align:left;margin:2px 0}.member:hover{background:#f7f9fd}.member.active{background:#f0f4ff;border-color:#e6edff}.member strong{font-size:12px;font-weight:500;display:block}.member small{font-size:10px;color:#9aa9bf;display:block;margin-top:2px}.member> .icon{margin-left:auto;color:#a4b4d0;width:15px;height:15px}.member-summary{font-size:9px;color:#9babbd;border-top:1px solid var(--line);padding:12px 17px}.permission-editor{overflow:hidden}.editor-top{padding:20px 22px}.editor-person{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:19px}.editor-person .avatar{width:39px;height:39px;font-size:14px}.editor-person h2{font-size:16px}.editor-person small{display:block;color:#9caabc;font-size:10px;margin-top:3px}.editor-form{display:grid;grid-template-columns:1fr 1fr;gap:19px}.editor-form .field{margin:0}.editor-form .field select,.editor-form .field input:not([type=checkbox]){font-size:11px;padding:7px 9px}.expiry-control{display:flex;gap:10px;align-items:center}.expiry-control label{font-size:11px;color:#7a8fa9;white-space:nowrap;display:flex;align-items:center;gap:5px}.expiry-control input[type=date]{max-width:155px}.scope-line{font-size:10px;color:#8fa0b9;display:flex;gap:15px;margin-top:13px;flex-wrap:wrap}.permission-filters{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:13px 20px;background:#fcfdff;display:flex;align-items:center;justify-content:space-between;gap:12px}.permission-filters select{padding:6px 9px;color:#768ba7;border:1px solid var(--line);border-radius:6px;background:white;font-size:11px}.permission-filters .label{color:#647a9b;font-size:11px;font-weight:500}.matrix-scroll{overflow-x:auto}.matrix{width:100%;border-collapse:collapse;font-size:11px}.matrix th{height:39px;background:#f9fbfd;text-align:center;font-weight:400;color:#96a6bd;border-bottom:1px solid var(--line);padding:0 11px}.matrix th:first-child{text-align:left;padding-left:24px}.matrix td{padding:11px;text-align:center;border-bottom:1px solid #f0f3f8;color:#5d738f}.matrix td:first-child{text-align:left;padding-left:24px}.matrix .group-row td{background:#fafcff;padding-top:9px;padding-bottom:9px}.matrix .group-row .group-name{display:flex;gap:8px;align-items:center;color:#7d90ab;font-size:10px;font-weight:500}.matrix .group-row .platform-icon{width:22px;height:22px;font-size:8px;border-radius:5px}.matrix .tool-title{font-size:11px;display:block}.matrix .tool-source{font-size:9px;color:#a3b0c2;display:block}.matrix input[type=checkbox],input[type=checkbox]{appearance:auto;accent-color:var(--primary);width:14px;height:14px;cursor:pointer;margin:0;vertical-align:middle}.check-cell{height:23px;display:inline-flex;align-items:center;justify-content:center;min-width:32px;cursor:pointer}.matrix tr:last-child td{border-bottom:0}.permission-note{margin:0;padding:13px 22px;font-size:10px;color:#91a0b7;line-height:1.85;border-top:1px solid var(--line);background:#fcfdff}.permission-save{padding:15px 22px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;position:sticky;bottom:0;z-index:3}.save-state{font-size:10px;color:#8a9fb8}.save-state.dirty{color:var(--amber)}.history-head{padding:16px 21px;display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line)}.history-head p{font-size:11px;color:#9aa8bd}.history-table td{padding:17px 19px}.history-table th{padding:12px 19px}.history-tool{display:flex;align-items:center;gap:9px}.history-tool .platform-icon{width:29px;height:29px;font-size:9px}.history-tool b{font-size:11px;font-weight:500;display:block}.history-tool small{font-size:9px;color:#9babbd;display:block}.history-actions{display:flex;align-items:center;gap:10px}.history-actions .text-btn{font-size:10px}.spinner{width:11px;height:11px;border:1.5px solid currentColor;border-top-color:transparent;border-radius:50%;display:inline-block;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}dialog{padding:0;border:1px solid var(--line);border-radius:13px;width:460px;max-width:calc(100vw - 30px);max-height:90vh;color:var(--ink);box-shadow:0 20px 90px #26395425}dialog::backdrop{background:#1e30483d;backdrop-filter:blur(2px)}.modal-head{padding:17px 20px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}.modal-head h2{font-size:15px}.modal-body{padding:21px;font-size:12px;color:#7789a3;line-height:1.9}.modal-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:flex-end;gap:9px;background:#fbfcff}.toast-stack{position:fixed;bottom:24px;left:calc(50% + 100px);transform:translateX(-50%);z-index:100;width:max-content;max-width:calc(100vw - 30px);pointer-events:none}.toast{display:flex;align-items:center;gap:8px;background:#fff;padding:12px 18px;border:1px solid var(--line);box-shadow:0 6px 35px #2943671c;border-radius:9px;font-size:12px;color:#617998;margin-top:8px}.toast .icon{color:var(--primary);width:16px;height:16px}.noscript{padding:20px;background:#fff6e6;color:#99703b}.mobile-nav{display:none}.sr-only{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(min-width:1500px){.main{padding-top:33px}.catalog-grid{gap:21px}.tool-card{padding:24px}.tool-card .desc{min-height:44px}.workbench{grid-template-columns:330px minmax(0,1fr)}}
+@media(max-width:1200px){.sidebar{width:182px}.app{margin-left:182px}.main{padding:24px}.topbar{padding:0 24px}.catalog-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-bar{align-items:flex-start;gap:10px}.platforms{gap:3px}.platform-chip{padding:5px 8px;font-size:11px}.filter-title{display:none}.search{max-width:175px}.workbench{grid-template-columns:285px minmax(0,1fr);gap:17px}.config-body{padding:17px}.config-footer{padding:15px 17px}.permission-layout{grid-template-columns:215px minmax(0,1fr);gap:17px}.permission-editor .editor-top{padding:18px}.matrix td:first-child,.matrix th:first-child{padding-left:18px}.permission-save{padding:14px 18px}.scope-line{gap:10px}.toast-stack{left:calc(50% + 90px)}}
+@media(max-width:960px){.sidebar{width:64px;padding:24px 8px}.brand{padding:0;justify-content:center}.brand-name,.brand-sub,.workspace,.nav-label,.nav-btn span,.side-tools,.side-bottom,.nav-divider{display:none}.sidebar nav{margin-top:32px}.nav-btn{justify-content:center;padding:12px 9px}.app{margin-left:64px}.main{padding:22px}.topbar{padding:0 22px}.heading p{max-width:440px}.permission-layout{grid-template-columns:190px minmax(0,1fr);gap:15px}.member{padding:11px 7px;gap:8px}.member strong{font-size:11px}.member small{font-size:9px}.member>.icon{display:none}.editor-form{grid-template-columns:1fr;gap:13px}.scope-line{font-size:9px}.permission-filters{padding:12px 17px}.matrix td{padding:10px 8px}.matrix th{padding:0 8px}.matrix th:not(:first-child){min-width:63px}.permission-save{flex-wrap:wrap}.permission-note{padding:12px 18px}.permission-save .btn{padding:7px 11px}.toast-stack{left:calc(50% + 32px)}.page-foot>span:last-child{display:none}}
+@media(max-width:760px){.workbench{grid-template-columns:1fr}.config-body{display:grid;grid-template-columns:1fr 1fr;gap:0 19px}.source{grid-column:1/-1}.config-body .input-field{grid-row:2 / span 3}.config-body .form-errors{grid-column:1/-1}.config-footer{display:flex;align-items:center;gap:18px;flex-wrap:wrap}.config-footer .btn{width:180px;margin:0;margin-left:auto}.config-footer .run-caption{width:100%;margin:0;text-align:left}.results{min-height:520px}.filter-bar{flex-direction:column;padding:12px}.search{width:100%;max-width:none}.heading-actions .btn .desktop-only{display:none}.heading-actions .btn{padding:8px 10px}.heading h1{font-size:24px}.tool-switchbar .hint{display:none}.permission-layout{grid-template-columns:1fr}.member-list{display:flex;overflow:auto;gap:5px;padding:9px}.member{min-width:155px;padding:10px}.member-panel .panel-head{height:49px}.member-summary{display:none}.editor-form{grid-template-columns:1fr 1fr}.permission-save{position:static}.permission-layout .member-panel{max-width:100%}.top-actions{gap:7px}.identity-label{display:none}.demo-badge{font-size:9px}.identity{max-width:140px;font-size:10px}.data-table{font-size:10px}.permission-note{font-size:9px}}
+@media(max-width:540px){.sidebar{display:none}.app{margin-left:0}.topbar{height:57px;padding:0 14px}.main{padding:18px 13px 78px}.top-actions{gap:4px}.breadcrumb{font-size:10px;gap:6px}.breadcrumb .icon{width:14px;height:14px}.breadcrumb b{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.breadcrumb button{font-size:10px}.demo-badge{padding:2px 5px;font-size:8px}.identity{max-width:105px;font-size:9px;padding-right:0}.heading{margin-bottom:19px;gap:10px}.heading .eyebrow{font-size:8px;margin-bottom:5px}.heading h1{font-size:23px}.heading p{font-size:10px;line-height:1.9}.heading .heading-icon{display:none}.heading-actions{padding-top:4px}.heading-actions .btn{padding:6px 8px;font-size:10px}.catalog-grid{grid-template-columns:1fr;gap:13px}.tool-card{padding:18px}.tool-card .desc{min-height:0}.tool-card h2{margin-top:13px}.tool-card-foot{margin-top:13px;padding-top:12px}.catalog-note{font-size:9px;padding:11px 13px;align-items:flex-start}.catalog-note .icon{margin-top:2px}.platforms{gap:3px}.platform-chip{padding:5px 6px;font-size:10px;gap:4px}.platform-chip small{font-size:8px;min-width:13px}.filter-bar{margin-bottom:16px}.filter-bar .platforms{width:100%;justify-content:space-between;gap:0}.catalog-meta{font-size:10px}.config-body{display:block;padding:17px}.config-footer{display:block;padding:16px 17px}.config-footer .btn{width:100%;margin-top:10px}.config-footer .run-caption{text-align:center;margin-top:7px}.field textarea{min-height:132px}.dates input{font-size:11px!important}.tool-switchbar{gap:7px}.tool-switchbar select{max-width:163px;font-size:10px}.tool-switchbar .separator{display:none}.result-body{padding:16px}.panel-head{padding:0 17px;height:53px}.result-toolbar{margin-top:17px}.result-toolbar .btn{padding:7px 9px;font-size:10px}.result-foot{padding:10px 16px;font-size:8px}.result-foot span:last-child{display:none}.table-caption{font-size:8px}.table-caption span:last-child{display:none}.run-info-line{font-size:10px;gap:9px}.page-foot{font-size:8px}.editor-form{grid-template-columns:1fr;gap:14px}.editor-top{padding:17px!important}.editor-person{margin-bottom:16px}.editor-person h2{font-size:14px}.permission-filters{padding:12px 16px}.permission-filters .label{font-size:10px}.matrix td:first-child,.matrix th:first-child{padding-left:14px}.matrix .tool-title{font-size:10px}.matrix .tool-source{font-size:8px}.matrix td:not(:first-child),.matrix th:not(:first-child){min-width:53px;width:53px;padding:8px 5px;font-size:10px}.matrix .group-row td{padding-top:8px;padding-bottom:8px}.permission-save{padding:14px 16px;gap:10px}.permission-save .save-state{width:100%;font-size:10px}.permission-save> .flex{justify-content:flex-end;width:100%}.permission-save .btn{font-size:11px;padding:8px 13px}.scope-line{font-size:9px}.permission-note{padding:12px 15px}.member{min-width:147px}.mobile-nav{display:flex;position:fixed;z-index:35;bottom:0;left:0;right:0;height:61px;background:#ffffffed;backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:5px 12px max(5px,env(safe-area-inset-bottom));gap:8px}.mobile-nav button{border:0;background:transparent;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#95a4bb;font-size:9px;border-radius:8px}.mobile-nav button.active{color:var(--primary);background:#f4f6ff}.mobile-nav .icon{width:18px;height:18px}.toast-stack{left:50%;bottom:76px}.history-head{padding:14px 16px}.history-head p{font-size:10px}.history-table td{padding:14px}.history-table th{padding:11px 14px}.heading-actions .remove-mobile{display:none}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}@media print{.sidebar,.topbar,.mobile-nav,.config-panel,.heading-actions,.btn,.page-foot{display:none!important}.app{margin:0}.main{padding:0}.workbench{display:block}.panel{border:0;box-shadow:none}.result-body{padding:0}}
+
+
+/* v0.4 - Platform connection management. */
+.demo-suffix{font-size:9px;opacity:.72}.danger-text{color:var(--red)}
+.connection-principle{display:flex;align-items:center;gap:14px;padding:18px 20px;margin-bottom:20px;background:#f0f4fd;border:1px solid #e3eaf8;border-radius:10px}
+.principle-icon{width:40px;height:40px;border:1px solid #dce6fd;background:#fff;border-radius:10px;display:grid;place-items:center;color:var(--primary);flex-shrink:0}
+.connection-principle strong{font-size:12px;font-weight:600;color:#4d638c}.connection-principle p{font-size:11px;color:#8392ad;margin-top:3px}.connection-principle>.pill{margin-left:auto;background:white;border:1px solid #e2e9f7}
+.account-filters{flex-wrap:wrap;gap:12px}.account-filter-right{display:flex;align-items:center;gap:10px}.account-filter-right select{border:1px solid var(--line);border-radius:6px;padding:7px 8px;background:white;color:#7f8ea4;font-size:11px}
+.account-filter-right .search{max-width:205px}.account-panel{overflow:hidden}.account-panel .panel-head{height:56px}
+.account-table-scroll{overflow:auto}.account-table{width:100%;border-collapse:collapse;text-align:left;font-size:11px;min-width:890px}
+.account-table th{font-size:10px;font-weight:500;color:#91a0b5;background:#fbfcfe;border-bottom:1px solid var(--line);padding:12px 18px;white-space:nowrap}
+.account-table td{padding:18px;vertical-align:middle;border-bottom:1px solid #eef1f6;color:#61728c}.account-table tr:last-child td{border-bottom:0}
+.account-table tr:hover td{background:#fcfdff}.account-table small{display:block;font-size:9px;color:#93a0b3;margin-top:4px}
+.account-name{display:flex;align-items:center;gap:10px}.account-name b{font-size:12px;font-weight:550;color:#43546f;white-space:nowrap}
+.account-name .platform-icon{width:31px;height:31px;border-radius:8px;font-size:10px}
+.scope-text{max-width:185px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.account-row-actions{display:flex;align-items:center;gap:12px;white-space:nowrap}.account-row-actions .text-btn{font-size:11px}
+.account-table-foot{display:flex;align-items:center;justify-content:space-between;gap:15px;border-top:1px solid var(--line);padding:12px 18px;color:#95a3b7;font-size:10px}
+.account-table-foot span{display:flex;align-items:center;gap:6px}
+.account-security-note{display:flex;align-items:flex-start;gap:12px;padding:17px 19px;margin-top:17px;border:1px dashed #dce4f2;background:#f9fbff;border-radius:9px;color:#8b9ab0}
+.account-security-note>.icon{color:#8195bd;margin-top:2px}.account-security-note strong{font-weight:500;font-size:11px;color:#6d80a0}.account-security-note p{font-size:10px;line-height:1.9;margin-top:4px}
+.tool-account{grid-column:1/-1;border-bottom:1px solid var(--line);padding-bottom:15px;margin-bottom:18px}.tool-account .source{margin-bottom:15px}
+.tool-account .source>.icon-btn{margin-left:auto}.tool-account .field{margin-bottom:12px}.tool-account .field-label .pill{font-size:8px;padding:2px 5px}
+.tool-account .demo-suffix{display:none}.account-context{font-size:9px;color:#95a2b6;display:flex;justify-content:space-between;gap:5px;margin-top:7px;flex-wrap:wrap}
+.account-bound-note{font-size:9px;color:#97a7be;display:flex;align-items:center;gap:5px;margin-top:10px}
+.tool-binding-line{margin-top:7px}.tool-binding-line .text-btn{font-size:10px;gap:3px}.tool-binding-line .binding-empty{color:var(--amber)}
+.matrix td:first-child{min-width:210px}.matrix td{padding-top:14px;padding-bottom:14px}
+.wide-modal{width:660px}.binding-intro{font-size:12px;color:#657897}.binding-intro p{font-size:11px;color:#8c9bb1;margin-top:7px}
+.binding-account{border:1px solid var(--line);border-radius:8px;padding:14px;margin-top:13px;background:#fff}
+.binding-account-title{display:flex;align-items:center;gap:9px;font-weight:500;color:#506581;font-size:12px}
+.binding-account input{accent-color:var(--primary);width:14px;height:14px;flex-shrink:0}
+.binding-scope-list{margin:11px 0 9px 23px;display:grid;gap:8px}.binding-scope-list label{display:flex;gap:8px;align-items:flex-start;font-size:11px;color:#74869f;cursor:pointer}
+.binding-scope-list small{display:block;color:#9aa9bc;margin-top:1px;font-size:9px}
+.account-drawer{position:fixed;inset:0 0 0 auto;margin:0;width:600px;max-width:100vw;height:100dvh;max-height:100dvh;border:0;border-left:1px solid var(--line);border-radius:0;overflow:hidden;box-shadow:-12px 0 60px #20355622}
+#account-drawer-content{height:100%;display:flex;flex-direction:column;overflow:hidden}
+.drawer-header{padding:24px 26px 20px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;border-bottom:1px solid var(--line);flex-shrink:0;background:#fff}
+.drawer-header .eyebrow{font-size:9px;letter-spacing:1.6px;color:#92a4be;margin-bottom:7px}.drawer-header h2{font-size:21px;font-weight:600}.drawer-header p{font-size:11px;color:#98a5b7;margin-top:5px}
+.drawer-body{padding:22px 26px 24px;overflow:auto;flex:1;min-height:0}
+.credential-warning{font-size:10px}.credential-warning strong{font-weight:550}
+.drawer-section-title{display:flex;align-items:center;gap:8px;margin:23px 0 15px}.drawer-section-title h3{font-size:12px;font-weight:600}.drawer-section-title small{font-size:10px;color:#98a7bc;margin-left:auto}.drawer-section-title .pill{margin-left:auto}
+.account-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 15px}.account-form-grid .field{margin-bottom:13px}.drawer-hint{font-size:10px;margin:2px 0 12px}
+.drawer-body .field-label{font-size:11px}.drawer-body .field input,.drawer-body .field select{font-size:11px;padding:9px 10px}
+.scope-edit-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr) 28px;gap:10px;align-items:center}
+.scope-edit-row .icon-btn{margin-top:8px}.scope-edit-row .field{margin-bottom:13px}.scope-edit-row input:disabled,.account-form-grid input:disabled,.account-form-grid select:disabled{background:#f6f8fb;color:#94a0b4}
+.connection-methods{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.method-option{border:1px solid #e2e8f2;background:#fff;border-radius:7px;padding:12px 5px;color:#8291a9;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px}
+.method-option.active{border-color:#aec0fa;color:var(--primary);background:#f2f5ff;box-shadow:0 0 0 1px #4263eb07}.method-hint{font-size:10px;margin:9px 0 14px}
+.browser-connection{border:1px dashed #cfdaf0;border-radius:8px;background:#f9fbff;padding:21px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+.browser-connection-icon{width:36px;height:36px;background:#eef3ff;border-radius:9px;color:#7891d9;display:grid;place-items:center}
+.browser-connection h3{font-size:12px;color:#5d7192}.browser-connection p{font-size:10px;line-height:1.8;color:#98a6ba;max-width:360px}
+.credential-box{border:1px solid #e5eaf3;border-radius:8px;padding:16px;background:#fcfdff}.credential-box>.between{margin-bottom:15px;gap:10px}
+.credential-box h3{font-size:12px;color:#607595}.credential-box .text-btn{font-size:10px}.credential-box .field{margin-bottom:13px}.credential-box textarea{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:11px;line-height:1.65;resize:vertical;min-height:110px}
+.credential-storage-note{display:flex;gap:5px;color:#98a8c0;font-size:9px}
+.connection-log{font-size:10px;color:#94a5bd;border-top:1px solid var(--line);padding-top:15px;margin-top:21px}.connection-log summary{cursor:pointer;color:#7186a5}.connection-log div{margin-top:10px;line-height:2}
+.drawer-footer{padding:17px 24px;display:flex;align-items:center;justify-content:space-between;gap:14px;border-top:1px solid var(--line);background:#fff;flex-shrink:0}
+.drawer-footer strong{font-size:10px;color:#7b8daa;font-weight:500;display:block}.drawer-footer small{font-size:9px;color:#9cabbe;display:block;margin-top:2px}
+.account-drawer .form-errors{margin-top:16px}
+@media(min-width:1400px){.account-table th,.account-table td{padding-left:22px;padding-right:22px}}
+@media(max-width:1200px){.account-filter-right{margin-left:auto}.account-filters>.flex{width:100%}.scope-text{max-width:165px}}
+@media(max-width:760px){.tool-account{display:block}.config-body .input-field{grid-row:auto}.connection-principle>.pill{display:none}.account-filters>.flex{align-items:flex-start}.account-filter-right{width:100%;margin-left:0}.account-filter-right .search{max-width:none;flex:1}.account-filter-right select{max-width:115px}.account-table-foot{flex-wrap:wrap}.account-security-note p{font-size:10px}.matrix td:first-child{min-width:200px}}
+@media(max-width:540px){
+ .account-drawer{width:100vw}.drawer-header{padding:21px 18px 17px}.drawer-body{padding:17px 18px 22px}.drawer-header h2{font-size:20px}
+ .drawer-section-title small{font-size:9px}.scope-edit-row{grid-template-columns:minmax(0,1fr) minmax(0,.82fr) 24px;gap:6px}
+ .drawer-body .field input,.drawer-body .field select{padding:9px 7px;font-size:11px}
+ .connection-methods{gap:6px}.method-option{font-size:10px;gap:4px;padding:11px 3px}.method-option .icon{width:14px}
+ .drawer-footer{padding:13px 17px;gap:10px;flex-wrap:wrap}.drawer-footer>div:first-child{width:100%}.drawer-footer>.flex{width:100%;justify-content:flex-end}
+ .drawer-footer small{display:none}.account-security-note{padding:13px;gap:9px}
+ .connection-principle{padding:14px 13px;gap:10px}.connection-principle strong{font-size:11px}.connection-principle p{font-size:10px}
+ .account-filters{padding:11px}.account-filters .platform-chip{font-size:10px;padding:5px 7px}.account-filters .filter-title{display:none}
+ .account-row-actions{gap:10px}.account-table{min-width:870px}.account-table-foot{font-size:9px}.account-table small{font-size:9px}
+ .binding-scope-list{margin-left:0}.binding-account{padding:12px}.binding-account>.between{align-items:flex-start;gap:8px;flex-wrap:wrap}
+ .binding-intro{font-size:11px}.binding-account-title{font-size:11px}.wide-modal .modal-body{padding:17px}.wide-modal .modal-foot .btn{font-size:11px}
+ .account-panel .panel-head>.small{font-size:9px}.tool-binding-line .text-btn{font-size:9px}.matrix td:first-child{min-width:186px}
+}
+
+
+/* v0.4: single access permission, account-level connections, team and history filters. */
+.connection-methods{grid-template-columns:repeat(2,minmax(0,1fr))}
+.account-table{min-width:800px}.account-table th:first-child{width:32%}.account-table th:nth-child(2){width:24%}.account-table th:nth-child(3){width:22%}.account-table th:nth-child(4){width:22%}
+.login-explanation{display:flex;gap:10px;align-items:flex-start}.login-explanation .browser-connection-icon{flex-shrink:0}.login-explanation h3{margin:1px 0 5px}.login-explanation p{font-size:10px;color:#8b9cb4;line-height:1.8}
+.login-route{display:flex;gap:18px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:15px;margin-top:16px;margin-bottom:16px}.login-route label{display:flex;align-items:center;gap:6px;font-size:11px;color:#627696;cursor:pointer}.login-route input{accent-color:var(--primary);margin:0}
+.login-password-fields>.between{margin-bottom:13px;gap:8px}.login-help{font-size:10px;line-height:1.85;color:#8b9cb4}.manual-help{padding:0 0 5px}.login-complete{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:15px 0;margin:4px 0 0}.login-complete .pill{font-size:9px}.credential-storage-note{line-height:1.8}
+.member-team-filter{padding:15px 15px 13px;border-bottom:1px solid var(--line)}.member-team-filter label{font-size:10px;color:#8594ab;display:block;margin-bottom:6px}.member-team-filter select{width:100%;border:1px solid #e0e6f0;border-radius:6px;padding:8px 9px;background:white;color:#526882;font-size:11px;min-width:0}.member-list{max-height:520px;overflow-y:auto}
+.access-principle{font-size:10px;color:#8e9db2;display:flex;align-items:center;gap:6px;margin-top:5px}.access-matrix{min-width:480px;width:100%;table-layout:auto}.access-matrix th:first-child{width:50%}.access-matrix th:nth-child(2){width:100px;text-align:center;white-space:nowrap}.access-matrix th:nth-child(3){width:30%;text-align:left}.access-matrix td:nth-child(2){text-align:center}.access-matrix td:nth-child(3){text-align:left;padding-left:17px}.access-matrix .tool-binding-line{margin-top:0}.group-account-note{font-size:9px;color:#9aa9bc;white-space:nowrap}.binding-account-help{display:block;font-size:10px;margin-top:10px}
+.access-toggle{position:relative;width:32px;height:19px;display:inline-block;vertical-align:middle;cursor:pointer}.access-toggle input{position:absolute;opacity:0;width:100%;height:100%;margin:0;z-index:1;cursor:pointer}.toggle-track{position:absolute;inset:0;background:#dbe2ef;border-radius:20px;transition:background .14s}.toggle-track:after{content:'';position:absolute;width:13px;height:13px;top:3px;left:3px;background:#fff;border-radius:50%;box-shadow:0 1px 3px #20305016;transition:transform .14s}.access-toggle input:checked+.toggle-track{background:var(--primary)}.access-toggle input:checked+.toggle-track:after{transform:translateX(13px)}.access-toggle input:focus-visible+.toggle-track{outline:3px solid #a8b7ff;outline-offset:3px}
+.history-filter-panel{padding:19px 21px 14px;margin-bottom:19px}.history-filter-grid{display:grid;grid-template-columns:minmax(120px,1fr) minmax(190px,1.35fr) minmax(150px,1fr) auto;gap:16px;align-items:end}.history-filter-grid .field{margin-bottom:0}.history-filter-grid .field-label{margin-bottom:6px}.history-filter-grid .field select{padding:9px 10px;font-size:12px}.reset-history{margin-bottom:1px;height:38px}.history-filter-hint{font-size:10px;color:#8c9db5;display:flex;align-items:center;gap:6px;margin-top:13px}.history-filter-hint.error{color:var(--red)}.history-custom{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid var(--line);color:#7c8ba2;font-size:11px}.history-custom input{border:1px solid #dfe6f0;border-radius:6px;padding:7px 9px;color:#637894;background:#fff;max-width:170px;min-width:0}.history-custom small{font-size:10px;color:#9daabd}.history-panel{overflow:hidden}.history-table-scroll{overflow:auto}.history-table{min-width:980px}.history-table td,.history-table th{padding-left:18px;padding-right:18px}.history-table .platform-icon{width:22px;height:22px;font-size:9px}.history-table th:first-child{width:110px}.history-date{white-space:nowrap;font-size:11px}.history-account{max-width:138px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;font-size:11px}.empty-action{text-align:center;margin:-12px 0 30px}.history-tool small{font-size:9px}.history-actions{white-space:nowrap}.history-head p{font-size:10px}
+@media(max-width:1120px){.history-filter-grid{grid-template-columns:minmax(120px,1fr) minmax(160px,1.3fr) minmax(120px,1fr)}.reset-history{grid-column:1/-1;justify-self:end;height:28px;margin-top:-3px}.history-filter-grid{row-gap:10px}}
+@media(max-width:760px){.history-filter-grid{grid-template-columns:1fr 1fr;gap:12px}.history-filter-grid>.field:nth-child(3){grid-column:1}.reset-history{grid-column:2;align-self:end;margin:0;height:36px;justify-self:end}.history-filter-panel{padding:16px}.history-custom{gap:7px}.history-custom>label{width:100%}.history-custom input{width:calc(50% - 18px)}.history-custom small{width:100%}.member-team-filter{padding:12px 14px}.member-list{max-height:240px;display:block}.permission-layout .member-panel .member-list .member{min-width:0;width:100%}.access-principle{align-items:flex-start}.login-route{gap:13px}.login-explanation p{font-size:10px}}
+@media(max-width:540px){.history-filter-hint{align-items:flex-start;line-height:1.8}.history-filter-hint .icon{margin-top:2px}.history-head{flex-wrap:wrap;gap:8px}.history-head h2{font-size:13px}.access-matrix td:first-child,.matrix td:first-child{min-width:190px}.permission-save{gap:10px}.permission-save .btn{padding:7px 10px;font-size:11px}.login-complete{gap:8px}.login-complete .btn{font-size:10px}.login-route label{font-size:10px}.account-table{min-width:770px}}
+
+</style>
+</head><body>
+<noscript><div class="noscript">请启用 JavaScript 以体验此本地原型。</div></noscript>
+<svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" xmlns="http://www.w3.org/2000/svg"><defs>
+<symbol id="i-grid" viewbox="0 0 24 24"><rect height="7" rx="2" width="7" x="3" y="3"></rect><rect height="7" rx="2" width="7" x="14" y="3"></rect><rect height="7" rx="2" width="7" x="3" y="14"></rect><rect height="7" rx="2" width="7" x="14" y="14"></rect></symbol>
+<symbol id="i-trend" viewbox="0 0 24 24"><path d="M4 4v16h17M7 14l4-4 4 3 6-8"></path><path d="M16 5h5v5"></path></symbol>
+<symbol id="i-spark" viewbox="0 0 24 24"><path d="m12 3 2.6 6.4L21 12l-6.4 2.6L12 21l-2.6-6.4L3 12l6.4-2.6L12 3Z"></path><path d="m20 2 1 2 2 1-2 1-1 2-1-2-2-1 2-1Z"></path></symbol>
+<symbol id="i-note" viewbox="0 0 24 24"><rect height="18" rx="3" width="16" x="4" y="3"></rect><path d="M8 8h8M8 12h5M8 16h7"></path></symbol>
+<symbol id="i-bubble" viewbox="0 0 24 24"><circle cx="9" cy="8" r="5"></circle><circle cx="17" cy="16" r="5"></circle><circle cx="5" cy="18" r="2"></circle></symbol>
+<symbol id="i-clock" viewbox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></symbol>
+<symbol id="i-help" viewbox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M9.2 9a3 3 0 0 1 5.6 1.5c-.4 1.2-2.8 1.4-2.8 3M12 17h.01"></path></symbol>
+<symbol id="i-chevron" viewbox="0 0 24 24"><path d="m9 5 7 7-7 7"></path></symbol>
+<symbol id="i-down" viewbox="0 0 24 24"><path d="m6 9 6 6 6-6"></path></symbol>
+<symbol id="i-left" viewbox="0 0 24 24"><path d="m15 5-7 7 7 7"></path></symbol>
+<symbol id="i-search" viewbox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="m16 16 5 5"></path></symbol>
+<symbol id="i-check" viewbox="0 0 24 24"><path d="m5 12 4 4L19 6"></path></symbol>
+<symbol id="i-info" viewbox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7h.01"></path></symbol>
+<symbol id="i-play" viewbox="0 0 24 24"><path d="m8 5 11 7-11 7V5Z"></path></symbol>
+<symbol id="i-pause" viewbox="0 0 24 24"><path d="M8 5v14M16 5v14"></path></symbol>
+<symbol id="i-stop" viewbox="0 0 24 24"><rect height="12" rx="2" width="12" x="6" y="6"></rect></symbol>
+<symbol id="i-upload" viewbox="0 0 24 24"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5h16v-5"></path></symbol>
+<symbol id="i-download" viewbox="0 0 24 24"><path d="M12 3v13m-5-5 5 5 5-5M4 16v5h16v-5"></path></symbol>
+<symbol id="i-table" viewbox="0 0 24 24"><rect height="16" rx="2" width="18" x="3" y="4"></rect><path d="M3 10h18M9 10v10M15 10v10"></path></symbol>
+<symbol id="i-file" viewbox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Z"></path><path d="M14 3v6h6M8 13h8M8 17h5"></path></symbol>
+<symbol id="i-sliders" viewbox="0 0 24 24"><path d="M4 7h5m4 0h7M4 17h11m4 0h1"></path><circle cx="11" cy="7" r="2"></circle><circle cx="17" cy="17" r="2"></circle></symbol>
+<symbol id="i-close" viewbox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"></path></symbol>
+<symbol id="i-collapse" viewbox="0 0 24 24"><rect height="16" rx="2" width="18" x="3" y="4"></rect><path d="M9 4v16m7-12-3 4 3 4"></path></symbol>
+<symbol id="i-expand" viewbox="0 0 24 24"><rect height="16" rx="2" width="18" x="3" y="4"></rect><path d="M9 4v16m4-12 3 4-3 4"></path></symbol>
+<symbol id="i-sort" viewbox="0 0 24 24"><path d="m8 9 4-4 4 4m-8 6 4 4 4-4"></path></symbol>
+<symbol id="i-shield" viewbox="0 0 24 24"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z"></path><path d="m8 12 3 3 5-6"></path></symbol>
+<symbol id="i-link" viewbox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2"></path></symbol>
+<symbol id="i-folder" viewbox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"></path></symbol>
+<symbol id="i-terminal" viewbox="0 0 24 24"><rect height="16" rx="3" width="18" x="3" y="4"></rect><path d="m7 9 3 3-3 3m6 0h4"></path></symbol>
+<symbol id="i-heart" viewbox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"></path></symbol>
+<symbol id="i-image" viewbox="0 0 24 24"><rect height="18" rx="3" width="18" x="3" y="3"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><path d="m3 16 5-4 5 4 3-3 5 4"></path></symbol>
+<symbol id="i-refresh" viewbox="0 0 24 24"><path d="M20 8a9 9 0 1 0 1 8M20 3v5h-5"></path></symbol>
+<symbol id="i-alert" viewbox="0 0 24 24"><path d="m12 3 10 18H2L12 3Z"></path><path d="M12 9v5m0 3h.01"></path></symbol>
+<symbol id="i-copy" viewbox="0 0 24 24"><rect height="13" rx="2" width="13" x="8" y="8"></rect><path d="M16 8V3H3v13h5"></path></symbol>
+<symbol id="i-building" viewbox="0 0 24 24"><path d="M5 21V3h14v18M2 21h20M9 7h1m4 0h1M9 11h1m4 0h1M10 21v-6h4v6"></path></symbol>
+<symbol id="i-trash" viewbox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7m4-7v7"></path></symbol>
+<symbol id="i-lock" viewbox="0 0 24 24"><rect height="11" rx="2" width="14" x="5" y="10"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"></path></symbol>
+<symbol id="i-arrow" viewbox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"></path></symbol>
+<symbol id="i-menu" viewbox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"></path></symbol>
+<symbol id="i-brand" viewBox="0 0 24 24"><path d="M6 5h12L6 19h12M4 12h16"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4v16M4 12h16"/></symbol></defs></svg>
+<aside class="sidebar" aria-label="主导航">
+ <div class="brand"><div class="brand-mark"><svg class="icon"><use href="#i-brand"/></svg></div><div class="brand-name">智采<span>cloud</span></div></div>
+ <div class="brand-sub">DATA, WITH CLARITY.</div>
+ <div class="workspace"><div class="box"><svg class="icon i16"><use href="#i-building"/></svg></div><div><strong>营销数据工作台</strong><small>团队共享工具</small></div></div>
+ <div class="nav-label">WORKSPACE</div><nav id="main-nav"></nav>
+ <div id="recent-tools" class="side-tools"></div>
+ <div class="side-bottom"><div class="local-note"><strong><span class="dot" style="color:var(--green)"></span> 本地交互原型 v0.4</strong>账号连接与权限均为模拟<br>不保存密码或 Cookie</div><div id="side-user" class="side-user"></div></div>
+</aside>
+<div class="app"><header class="topbar"><div id="breadcrumb" class="breadcrumb"></div><div class="top-actions"><span class="demo-badge">交互原型 · 模拟数据</span><label class="identity-label" for="identity">演示身份</label><select id="identity" class="identity" aria-label="切换演示身份"></select></div></header><main id="main" class="main"></main></div>
+<nav id="mobile-nav" class="mobile-nav" aria-label="移动导航"></nav>
+<dialog id="modal" aria-labelledby="modal-title"><div class="modal-head"><h2 id="modal-title"></h2><button class="icon-btn" data-action="close-modal" aria-label="关闭"><svg class="icon"><use href="#i-close"/></svg></button></div><div id="modal-body" class="modal-body"></div><div id="modal-foot" class="modal-foot"></div></dialog>
+<dialog id="account-drawer" aria-labelledby="account-drawer-title" class="account-drawer"><div id="account-drawer-content"></div></dialog>
+<div id="toast-stack" class="toast-stack" role="status" aria-live="polite"></div><div id="live-region" class="sr-only" role="status" aria-live="polite"></div>
+<script>
+'use strict';
+/* Offline interaction prototype. UI permission checks demonstrate behavior only. */
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const I=(s,c='')=>`<svg class="icon ${c}" aria-hidden="true"><use href="#i-${s}"/></svg>`;
+const clone=o=>JSON.parse(JSON.stringify(o));
+const number=n=>Number(n).toLocaleString('zh-CN');
+const localDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const today=()=>localDate(new Date());
+const range=n=>{const e=new Date();e.setDate(e.getDate()-1);const s=new Date(e);s.setDate(s.getDate()-n+1);return {start:localDate(s),end:localDate(e)}};
+const countDays=(a,b)=>Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00Z'))/86400000)+1;
+const days=(a,b)=>Array.from({length:Math.max(0,Math.min(90,countDays(a,b)))},(_,i)=>{const d=new Date(a+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+i);return d.toISOString().slice(0,10)});
+const hash=s=>[...String(s)].reduce((h,c)=>(Math.imul(h,31)+c.charCodeAt(0))>>>0,37);
+const uid=()=>Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,5).toUpperCase();
+const platforms={xhs:{name:'小红书',short:'红'},baidu:{name:'百度',short:'度'},douyin:{name:'抖音',short:'抖'},tmall:{name:'天猫',short:'猫'}};
+const tools={
+ trend:{title:'关键词每日趋势',platform:'xhs',source:'聚光',icon:'file',kind:'keywords',dates:true,unit:'关键词',label:'输入关键词',desc:'批量获取指定日期的搜索趋势明细，保留平台指标口径。',input:'关键词 + 日期',output:'关键词、日期、搜索量',sample:'防晒\n敏感肌防晒\n通勤防晒',columns:[['keyword','关键词'],['date','统计日期'],['value','搜索量',1],['status','状态']]},
+ keywords:{title:'关键词推荐',platform:'xhs',source:'聚光',icon:'spark',kind:'keywords',unit:'词根',label:'输入词根',desc:'从多个词根获取推荐词，一次整理搜索指数和词根内排名。',input:'词根列表',output:'推荐词、月搜索指数、排名',sample:'防晒\n敏感肌\n户外',columns:[['root','原始词根'],['keyword','推荐关键词'],['index','月搜索指数',1],['rank','词根内排名',1],['status','状态']]},
+ notes:{title:'笔记封面与内容',platform:'xhs',source:'小红书内容端',icon:'note',kind:'links',unit:'笔记',label:'输入笔记链接',desc:'按链接整理标题、正文和封面地址，直接交付结构化数据。',input:'笔记链接列表',output:'标题、作者、正文、封面地址',sample:'https://example.com/note/1001\nhttps://example.com/note/1002\nhttps://example.com/note/1003',columns:[['title','笔记标题'],['author','作者'],['body','正文'],['cover','封面地址'],['url','笔记链接'],['status','状态']]},
+ industry:{title:'行业竞争数据',platform:'xhs',source:'灵犀',icon:'table',kind:'industry',dates:true,unit:'对象',desc:'按行业和周期获取品牌或商品指标，直接导出数据明细。',input:'行业 + 日期 + 对象',output:'搜索指数、互动指数、内容量',sample:'',columns:[['brand','品牌 / 商品'],['period','统计区间'],['search','搜索指数',1],['interaction','互动指数',1],['content','内容量',1],['status','状态']]},
+ baidu:{title:'百度关键词指数',platform:'baidu',source:'百度指数',icon:'file',kind:'keywords',dates:true,unit:'关键词',label:'输入关键词',desc:'按日期批量获取关键词搜索指数，统一导出分日明细。',input:'关键词 + 日期',output:'关键词、日期、百度搜索指数',sample:'防晒\n夏日护肤',columns:[['keyword','关键词'],['date','统计日期'],['value','百度搜索指数',1],['status','状态']]},
+ douyin:{title:'抖音算数指数',platform:'douyin',source:'抖音算数',icon:'file',kind:'keywords',dates:true,unit:'关键词',label:'输入关键词',desc:'整理关键词搜索指数和综合指数，保留各指标原始含义。',input:'关键词 + 日期',output:'日期、搜索指数、综合指数',sample:'防晒\n户外运动',columns:[['keyword','关键词'],['date','统计日期'],['search','搜索指数',1],['total','综合指数',1],['status','状态']]},
+ product:{title:'商品流量来源',platform:'tmall',source:'生意参谋',icon:'folder',kind:'ids',dates:true,unit:'商品',label:'输入商品 ID',desc:'批量整理商品来源、访客及加购明细，导出后进行后续分析。',input:'商品 ID + 日期',output:'商品、来源、访客、加购',sample:'100000000001\n100000000002',columns:[['item','商品 ID'],['date','统计日期'],['source','流量来源'],['visitors','访客数',1],['cart','加购人数',1],['status','状态']]},
+ shop:{title:'竞店入店来源',platform:'tmall',source:'生意参谋',icon:'building',kind:'shops',dates:true,unit:'店铺',label:'输入店铺标识',desc:'整理本店与竞店流量来源，保留来源层级和区间值。',input:'店铺标识 + 日期',output:'店铺、来源层级、访客区间',sample:'DEMO-SHOP-A\nDEMO-SHOP-B',columns:[['shop','店铺标识'],['period','统计区间'],['source','来源路径'],['visitors','访客区间'],['status','状态']]}
+};
+
+const allTools=Object.keys(tools);
+// A single boolean per tool. Account selection is a resource list, not separate action permissions.
+const blankGrants=()=>Object.fromEntries(allTools.map(id=>[id,false]));
+const granted=ids=>Object.fromEntries(allTools.map(id=>[id,ids.includes(id)]));
+function initialUsers(){return [
+ {id:'u1',name:'林予安',team:'数据运营组',role:'admin',expiry:'',grants:granted(allTools)},
+ {id:'u2',name:'陈星',team:'内容研究组',role:'member',expiry:'',grants:granted(['trend','keywords','notes'])},
+ {id:'u3',name:'王宁',team:'电商运营组',role:'member',expiry:'',grants:granted(['product','shop'])},
+ {id:'u4',name:'周可',team:'品牌策略组',role:'member',expiry:'',grants:granted(['trend'])},
+ {id:'u5',name:'许澄',team:'数据运营组',role:'member',expiry:'',grants:granted(['trend','keywords','industry'])},
+ {id:'u6',name:'赵悦',team:'内容研究组',role:'member',expiry:'',grants:blankGrants()}
+];}
+// Service entries describe prototype UI only; no live authentication is performed.
+const services={
+ jug:{platform:'xhs',name:'聚光',tools:['trend','keywords']},
+ lingxi:{platform:'xhs',name:'灵犀',tools:['industry']},
+ content:{platform:'xhs',name:'小红书内容端',tools:['notes']},
+ bindex:{platform:'baidu',name:'百度指数',tools:['baidu']},
+ ocean:{platform:'douyin',name:'抖音算数',tools:['douyin']},
+ sycm:{platform:'tmall',name:'生意参谋',tools:['product','shop']}
+};
+const serviceFor=t=>Object.keys(services).find(s=>services[s].tools.includes(t));
+const connectionMethods={login:'账号登录',cookie:'Cookie / 会话导入'};
+function initialAccounts(){
+ const row=(id,service,alias,owner,status,method,loginMode='manual')=>({id,service,alias,owner,status,method,loginMode,credentialConfigured:status!=='unverified',revision:1,created:Date.now()-86400000,updated:Date.now()-3600000,verifiedAt:status==='verified'?Date.now()-900000:0,lastEvent:'内置虚构账号，仅用于演示'});
+ return [
+ row('acc-jg-01','jug','聚光公共账号 01','u1','verified','login'),
+ row('acc-jg-02','jug','聚光项目账号 02','u1','expired','cookie'),
+ row('acc-lx-01','lingxi','灵犀公共账号 01','u1','verified','login'),
+ row('acc-note-01','content','内容采集账号 01','u2','verified','cookie'),
+ row('acc-bd-01','bindex','百度指数账号 01','u1','unverified','cookie'),
+ row('acc-dy-01','ocean','抖音算数账号 01','u1','verified','login'),
+ row('acc-tm-01','sycm','品牌 A 店铺账号','u3','verified','login'),
+ row('acc-tm-02','sycm','品牌 B 店铺账号','u3','disabled','login','password')
+ ];
+}
+const storageKey='zhicai-data-tools-v4';
+let users=initialUsers(),accounts=initialAccounts(),runs=[],currentUser='u1',storageWorks=true,page='catalog',currentTool='trend',platform='all',catalogQuery='',editorUser='u1',editor=null,permPlatform='all',memberTeam='all',timer=null,modalAction=null,modalReturn=null;
+let accountPlatform='all',accountStatusFilter='all',accountQuery='',accountDraft=null,accountFormDirty=false,accountReturn=null,bindingDraft=null,verificationTimers=new Map();
+let historyFilters={platform:'all',tool:'all',period:'all',start:'',end:''};
+function blankBindings(){return Object.fromEntries(allTools.map(t=>[t,[]]));}
+function initialBindings(u){
+ const b=blankBindings();
+ allTools.forEach(t=>{if(!u.grants[t])return;const list=accounts.filter(a=>a.service===serviceFor(t));b[t]=u.id==='u1'?list.map(a=>a.id):list.slice(0,1).map(a=>a.id);});
+ return b;
+}
+function cleanBindings(u){
+ const b=blankBindings();
+ allTools.forEach(t=>{const chosen=Array.isArray(u.bindings?.[t])?u.bindings[t]:[];b[t]=accounts.filter(a=>a.service===serviceFor(t)&&chosen.includes(a.id)).map(a=>a.id);});
+ u.bindings=b;return u;
+}
+users.forEach(u=>u.bindings=initialBindings(u));
+// Deliberate separate v4 state: do not silently turn old partial permissions into full access.
+try{
+ const d=JSON.parse(localStorage.getItem(storageKey)||'null');
+ if(d&&d.version===4&&Array.isArray(d.users)&&d.users.some(u=>u.role==='admin')&&Array.isArray(d.accounts)){
+  accounts=d.accounts.filter(a=>a&&services[a.service]&&typeof a.id==='string').map(accountRecord);
+  const saved=d.users.filter(u=>u&&typeof u.id==='string'&&typeof u.name==='string'&&['admin','member'].includes(u.role)).map(u=>cleanBindings({id:u.id,name:u.name,team:String(u.team||'未分组'),role:u.role,expiry:typeof u.expiry==='string'?u.expiry:'',grants:Object.fromEntries(allTools.map(t=>[t,u.grants?.[t]===true])),bindings:u.bindings}));
+  if(saved.length&&saved.some(u=>u.role==='admin'))users=saved;
+  currentUser=users.some(u=>u.id===d.currentUser)?d.currentUser:users[0].id;
+  runs=Array.isArray(d.runs)?d.runs.filter(r=>r&&tools[r.tool]&&Array.isArray(r.rows)&&Array.isArray(r.failed)&&r.config&&Array.isArray(r.items)&&r.accountId&&Number.isFinite(r.created)).slice(0,100):[];
+  runs.forEach(r=>{if(['running','queued'].includes(r.status)){r.status='stopped';r.reason='页面已关闭，模拟任务未继续执行。';}});
+ }
+}catch(e){storageWorks=false;}
+// Explicit allow-list: credentials and transient login inputs are never persisted.
+function accountRecord(a){return {
+ id:String(a.id),service:a.service,alias:String(a.alias||''),owner:String(a.owner||'u1'),
+ status:['verified','unverified','expired','disabled'].includes(a.status)?a.status:'unverified',
+ method:connectionMethods[a.method]?a.method:'login',loginMode:a.loginMode==='password'?'password':'manual',
+ credentialConfigured:!!a.credentialConfigured,revision:Number(a.revision)||1,created:Number(a.created)||Date.now(),
+ updated:Number(a.updated)||Date.now(),verifiedAt:Number(a.verifiedAt)||0,lastEvent:String(a.lastEvent||'')
+};}
+function persist(){
+ try{
+  const safeUsers=users.map(u=>({id:u.id,name:u.name,team:u.team,role:u.role,expiry:u.expiry,grants:u.grants,bindings:u.bindings}));
+  localStorage.setItem(storageKey,JSON.stringify({version:4,accounts:accounts.map(accountRecord),users:safeUsers,currentUser,runs:runs.slice(0,100)}));
+ }catch(e){if(storageWorks)toast('浏览器存储不可用或已满，本次修改仅在当前页面保留。','alert');storageWorks=false;}
+}
+const user=()=>users.find(u=>u.id===currentUser)||users[0];
+const expired=u=>!!u.expiry&&u.expiry<today();
+const can=(tool,who=currentUser)=>{const u=users.find(x=>x.id===who);return !!u&&!expired(u)&&u.grants?.[tool]===true};
+const isAdmin=()=>user().role==='admin';
+const platformBadge=p=>`<span class="platform-icon ${p}" aria-hidden="true">${platforms[p].short}</span>`;
+const statusMap={running:['blue','运行中'],complete:['green','全部完成'],partial:['amber','部分完成'],stopped:['amber','已停止'],failed:['red','运行失败'],example:['blue','输出格式示例']};
+function statusPill(s){const [c,t]=statusMap[s]||statusMap.example;return `<span class="pill ${c}">${s==='running'?'<span class="spinner"></span>':'<span class="dot"></span>'}${t}</span>`}
+function toast(text,ico='check'){const el=document.createElement('div');el.className='toast';el.innerHTML=I(ico)+`<span>${esc(text)}</span>`;$('#toast-stack').append(el);setTimeout(()=>el.remove(),4500);while($('#toast-stack').children.length>2)$('#toast-stack').firstElementChild.remove()}
+function defaultConfig(id){return {accountId:'',input:tools[id].sample,...range(7),preset:7,limit:10,industry:'美妆个护',category:'防晒',dimension:'品牌',fileName:''}}
+const configs=Object.fromEntries(allTools.map(t=>[t,defaultConfig(t)]));
+const selectedRun={};
+let configErrors=[];
+function runForTool(){const id=selectedRun[currentUser+':'+currentTool];return runs.find(r=>r.id===id&&r.owner===currentUser)||runs.find(r=>r.owner===currentUser&&r.tool===currentTool)||null}
+function signature(c){return JSON.stringify([c.accountId,c.input,c.start,c.end,c.limit,c.industry,c.category,c.dimension])}
+function inputItems(c,t){if(tools[t].kind==='industry')return {valid:Array.from({length:8},(_,i)=>`示例${c.dimension} ${String.fromCharCode(65+i)}`),invalid:[],duplicates:0,total:8};const raw=c.input.split(/\r?\n/).map(s=>s.trim()).filter(Boolean),seen=new Set(),valid=[],invalid=[];let duplicates=0;raw.forEach((v,i)=>{let ok=v.length<=300;if(tools[t].kind==='links'){try{ok=ok&&['http:','https:'].includes(new URL(v).protocol)}catch(e){ok=false}}if(tools[t].kind==='ids')ok=ok&&/^\d{5,24}$/.test(v);if(!ok){invalid.push(i+1);return}if(seen.has(v)){duplicates++;return}seen.add(v);valid.push(v)});return {valid,invalid,duplicates,total:raw.length}}
+function renderChrome(){const nav=[['catalog','grid','工具中心'],['history','clock','运行记录'],...(canManageAnyAccount()?[['accounts','link','平台账号']]:[]),...(isAdmin()?[['permissions','shield','权限配置']]:[])];$('#main-nav').innerHTML=nav.map(([p,i,t])=>`<button class="nav-btn ${page===p||(p==='catalog'&&page==='tool')?'active':''}" data-page="${p}" ${page===p?'aria-current="page"':''} title="${t}">${I(i)}<span>${t}</span>${p==='catalog'?`<span class="count">${allTools.length}</span>`:''}</button>`).join('');$('#mobile-nav').innerHTML=nav.map(([p,i,t])=>`<button data-page="${p}" class="${page===p||(p==='catalog'&&page==='tool')?'active':''}">${I(i)}<span>${t}</span></button>`).join('');$('#recent-tools').innerHTML=page==='tool'?`<div class="nav-divider"></div><div class="nav-label">当前平台</div>${allTools.filter(id=>tools[id].platform===tools[currentTool].platform).map(id=>`<button class="nav-btn ${id===currentTool?'active':''}" data-open-tool="${id}" title="${tools[id].title}">${I(tools[id].icon)}<span>${tools[id].title}</span></button>`).join('')}`:'';$('#side-user').innerHTML=`<span class="avatar">${esc(user().name.slice(-2))}</span><div><strong>${esc(user().name)}</strong><small>${isAdmin()?'演示管理员':'演示成员'} · ${esc(user().team)}</small></div>`;$('#identity').innerHTML=users.map(u=>`<option value="${esc(u.id)}" ${u.id===currentUser?'selected':''}>${esc(u.name)} · ${u.role==='admin'?'管理员':'成员'}</option>`).join('');const title=page==='accounts'?'平台账号':page==='permissions'?'权限配置':page==='history'?'运行记录':page==='tool'?tools[currentTool].title:'工具中心';$('#breadcrumb').innerHTML=I('grid','i14')+`<button data-page="catalog">工作空间</button>${I('chevron','i14')}<b>${title}</b>`;document.title=title+' · 智采 cloud'}
+const footer=()=>`<footer class="page-foot"><span>${I('shield')} 仅本地演示，所有数据和账号均为模拟。</span><span>统一输入 · 数据交付 · 按需授权 / ZHICAI CLOUD</span></footer>`;
+function render(){renderChrome();if(page==='catalog')renderCatalog();else if(page==='tool')renderTool();else if(page==='accounts'){if(!canManageAnyAccount()){page='catalog';return render()}renderAccounts()}else if(page==='permissions'){if(!isAdmin()){page='catalog';return render()}renderPermissions()}else renderHistory()}
+function editorDirty(){return !!editor&&JSON.stringify(editor)!==JSON.stringify(users.find(u=>u.id===editorUser))}
+function safeLeave(callback){if(page==='permissions'&&editorDirty()){showModal('还有未保存的权限',`离开后将丢弃当前未保存的修改。`, '放弃修改',()=>{editor=null;callback()});return}callback()}
+function go(p){safeLeave(()=>{page=p;configErrors=[];if(p==='permissions'){memberTeam='all';editorUser=currentUser;editor=clone(user());permPlatform='all';}render();window.scrollTo(0,0);});}
+function openTool(id,record=null){if(!tools[id])return;safeLeave(()=>{currentTool=id;page='tool';configErrors=[];if(record)selectedRun[currentUser+':'+id]=record.id;render();window.scrollTo(0,0)})}
+function platformChips(){return ['all',...Object.keys(platforms)].map(p=>`<button class="platform-chip ${platform===p?'active':''}" data-platform="${p}" aria-pressed="${platform===p}">${p==='all'?'全部平台':platforms[p].name}<small>${p==='all'?allTools.length:allTools.filter(t=>tools[t].platform===p).length}</small></button>`).join('')}
+function renderCatalog(){const list=allTools.filter(id=>(platform==='all'||tools[id].platform===platform)&&(!catalogQuery||(tools[id].title+tools[id].source+tools[id].desc).includes(catalogQuery)));$('#main').innerHTML=`<div class="heading"><div><div class="eyebrow">DATA ACQUISITION</div><h1>工具中心</h1><p>选择平台与工具，填写参数，获取可下载的数据。</p></div><div class="heading-actions"><button class="btn" data-page="history">${I('clock','i16')}<span>运行记录</span></button></div></div><section class="filter-bar" aria-label="按平台筛选工具"><div class="flex"><span class="filter-title">平台</span><div class="platforms">${platformChips()}</div></div><div class="search">${I('search','i14')}<input id="tool-search" type="search" aria-label="搜索工具" placeholder="搜索工具名称" value="${esc(catalogQuery)}"></div></section><div class="between catalog-meta"><span>共 ${list.length} 个工具 <span class="muted">· ${platform==='all'?'所有平台':platforms[platform].name}</span></span><span>当前身份可运行 ${list.filter(t=>hasRunnableAccount(t)).length} 个</span></div><section class="catalog-grid">${list.map(id=>{const t=tools[id],allowed=can(id);return `<article class="tool-card" data-card="${id}"><div class="between">${platformBadge(t.platform)}<span class="pill">${platforms[t.platform].name} · ${t.source}</span></div><h2>${t.title}</h2><p class="desc">${t.desc}</p><div class="tool-spec"><span>输入</span><span>${t.input}</span><span>输出</span><span title="${t.output}">${t.output}</span></div><div class="tool-card-foot"><span class="flex" style="gap:5px">${toolAccessLabel(id)}</span><button class="text-btn" data-open-tool="${id}" ${allowed?'':'disabled'}>${allowed?'配置采集':'未授权'}${I('chevron','i14')}</button></div></article>`}).join('')}</section>${!list.length?`<div class="panel empty"><div class="empty-icon">${I('search')}</div><h3>没有匹配的工具</h3><p>试试切换平台或清空搜索条件。</p><button class="btn sm" data-action="clear-filter">清空筛选</button></div>`:''}<div class="catalog-note">${I('info','i16')}<span>本版只提供数据获取、明细预览和下载，不提供 BI 分析图表。所有工具均为前端演示，尚未接入真实数据源。</span></div>${footer()}`}
+function renderTool(){if(!can(currentTool)){$('#main').innerHTML=`<div class="heading"><div><div class="eyebrow">TOOL ACCESS</div><h1>${tools[currentTool].title}</h1><p>${platforms[tools[currentTool].platform].name} · ${tools[currentTool].source}</p></div><button class="btn" data-page="catalog">返回工具中心</button></div><section class="panel">${emptyView('暂无访问权限','请联系管理员开启此工具的访问权限。','lock')}</section>${footer()}`;return;}ensureAccount(currentTool);const t=tools[currentTool],c=configs[currentTool],r=runForTool();const choices=allTools.filter(id=>platform==='all'||tools[id].platform===platform);if(!choices.includes(currentTool))platform=t.platform;const items=allTools.filter(id=>platform==='all'||tools[id].platform===platform);$('#main').innerHTML=`<div class="heading"><div><div class="flex" style="gap:11px"><span class="heading-icon">${I(t.icon)}</span><h1>${t.title}</h1><span class="pill">v0.4</span></div><p>${t.desc}</p></div><div class="heading-actions"><button class="btn" data-page="catalog">${I('left','i16')}<span class="desktop-only">工具中心</span></button></div></div><div class="tool-switchbar"><label class="small muted" for="tool-platform">平台</label><select id="tool-platform" aria-label="筛选工具平台"><option value="all" ${platform==='all'?'selected':''}>全部平台</option>${Object.entries(platforms).map(([id,p])=>`<option value="${id}" ${platform===id?'selected':''}>${p.name}</option>`).join('')}</select><span class="separator"></span><label class="small muted" for="tool-picker">工具</label><select id="tool-picker">${items.map(id=>`<option value="${id}" ${id===currentTool?'selected':''}>${tools[id].title}</option>`).join('')}</select><span class="hint">填写参数 → 开始采集 → 下载结果</span></div><div class="workbench"><section class="panel config-panel"><div class="panel-head"><h2><span class="step">1</span>运行配置</h2><button class="text-btn" style="font-size:10px" data-action="reset-config" ${r?.status==='running'?'disabled':''}>重置</button></div><div id="config-body" class="config-body"></div><div class="config-footer"><div id="run-summary" class="run-summary"></div><button class="btn primary" id="run-button" data-action="start">${I('play','i16')}开始采集</button><div class="run-caption">${I('lock','i14')} 模拟运行，不请求真实平台</div></div></section><section class="panel results" id="result-panel" aria-label="采集结果"></section></div>${footer()}`;renderConfig();renderResult()}
+function renderConfig(){if(!$('#config-body'))return;ensureAccount(currentTool);const t=tools[currentTool],c=configs[currentTool],r=runForTool(),busy=r?.status==='running';let html=toolAccountMarkup(currentTool,c,busy);
+if(t.kind!=='industry')html+=`<div class="field input-field"><div class="field-label"><label for="input-list">${t.label}<span class="required">*</span></label><button class="text-btn" data-action="sample" ${busy?'disabled':''}>填入示例</button></div><textarea id="input-list" data-config="input" maxlength="30000" spellcheck="false" placeholder="每行一项，可直接从 Excel 复制粘贴" aria-describedby="input-meta" ${busy?'disabled':''}>${esc(c.input)}</textarea><div id="input-meta" class="field-hint"></div><div class="input-actions"><button class="text-btn" data-action="import" ${busy?'disabled':''}>${I('upload','i14')}导入 CSV / TXT</button><button class="text-btn" data-action="template">下载模板</button></div><input id="file-input" type="file" accept=".csv,.txt,text/csv,text/plain" class="hidden" aria-label="选择输入文件"><div id="file-hint" class="field-hint">${c.fileName?esc(c.fileName)+' · 仅在本地解析':''}</div>${t.kind==='links'?'<div class="field-hint">请输入 http(s) 链接。演示不会打开或访问链接。</div>':''}</div>`;
+if(t.kind==='industry')html+=`<div class="field"><div class="field-label"><label for="industry">行业<span class="required">*</span></label></div><select id="industry" data-config="industry" ${busy?'disabled':''}>${['美妆个护','食品饮料','运动户外'].map(s=>`<option ${s===c.industry?'selected':''}>${s}</option>`).join('')}</select></div><div class="field"><div class="field-label"><label for="dimension">采集对象</label></div><select id="dimension" data-config="dimension" ${busy?'disabled':''}>${['品牌','商品 SPU'].map(s=>`<option ${s===c.dimension?'selected':''}>${s}</option>`).join('')}</select></div>`;
+if(t.dates)html+=`<div class="field"><div class="field-label"><label for="date-start">查询日期<span class="required">*</span></label><span class="muted small" style="font-size:9px;font-weight:400">${['industry','shops'].includes(t.kind)?'按区间':'按日'}</span></div><div class="dates"><input type="date" id="date-start" data-config="start" value="${c.start}" max="${today()}" aria-label="开始日期" ${busy?'disabled':''}><span>至</span><input type="date" id="date-end" data-config="end" value="${c.end}" max="${today()}" aria-label="结束日期" ${busy?'disabled':''}></div><div class="presets">${[7,14,30].map(n=>`<button data-days="${n}" class="${c.preset===n?'active':''}" ${busy?'disabled':''}>近 ${n} 天</button>`).join('')}</div><div class="field-hint">${['industry','shops'].includes(t.kind)?'以整个时间区间返回数据，不展示分日趋势。':'包含起止日期，最多 90 天。'}</div></div>`;
+if(currentTool==='keywords')html+=`<div class="field"><div class="field-label"><label for="keyword-limit">每个词根的推荐数量</label></div><select id="keyword-limit" data-config="limit" ${busy?'disabled':''}>${[10,20,30].map(n=>`<option value="${n}" ${c.limit===n?'selected':''}>Top ${n}</option>`).join('')}</select><div class="field-hint">推荐词保留原始词根归属。</div></div>`;
+html+=`<div class="field"><div class="field-label"><span>交付内容</span><span class="pill" style="font-size:8px">CSV</span></div><div class="field-hint" style="border:1px solid var(--line);border-radius:6px;padding:9px 10px;background:#fafcff;color:#8596b0">${t.output}<br>保留来源、任务编号与模拟数据标识</div></div><div id="config-errors" class="form-errors ${configErrors.length?'':'hidden'}" role="alert">${configErrors.map(esc).join('<br>')}</div>`;
+$('#config-body').innerHTML=html;refreshConfigMeta()}
+function refreshConfigMeta(){const t=tools[currentTool],c=configs[currentTool],p=inputItems(c,currentTool),r=runForTool();if($('#input-meta')){$('#input-meta').textContent=`已识别 ${p.valid.length} 个${t.unit}${p.duplicates?' · 已去除 '+p.duplicates+' 个重复项':''}${p.invalid.length?' · '+p.invalid.length+' 项格式错误':''}`;$('#input-meta').classList.toggle('error',!!p.invalid.length)}$('#run-summary').textContent=t.kind==='industry'?`${c.industry} · ${c.dimension} · 区间明细`:`${p.valid.length} 个${t.unit}${t.dates&&Number.isFinite(countDays(c.start,c.end))?' · '+countDays(c.start,c.end)+' 天':''} · CSV 文件`;const b=$('#run-button'),blocked=runBlockReason(currentTool,c);b.disabled=!!blocked||r?.status==='running';b.title=blocked;b.innerHTML=r?.status==='running'?'<span class="spinner"></span> 正在采集':blocked?I('lock','i16')+(can(currentTool)?'账号暂不可用':'无访问权限'):I('play','i16')+'开始采集';if($('#dirty-warning'))$('#dirty-warning').classList.toggle('hidden',!r||signature(c)===signature(r.config))}
+function tableMarkup(rows,columns,limit=10){return `<div class="data-wrap"><table class="data-table"><thead><tr><th class="row-index">#</th>${columns.map(([key,label,n])=>`<th class="${n?'numeric':''}">${label}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,limit).map((row,i)=>`<tr><td class="row-index">${String(i+1).padStart(2,'0')}</td>${columns.map(([key,label,n])=>`<td class="${n?'numeric':''}" title="${esc(row[key]??'')}">${key==='status'?`<span class="pill green" style="font-size:9px">${esc(row[key])}</span>`:n&&typeof row[key]==='number'?number(row[key]):`<span class="cell-text">${esc(row[key]??'—')}</span>`}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}
+function emptyView(title,text,ico='table'){return `<div class="empty"><div class="empty-icon">${I(ico)}</div><h3>${title}</h3><p>${text}</p></div>`}
+function renderResult(){if(page!=='tool'||!$('#result-panel'))return;const t=tools[currentTool],r=runForTool(),preview=r?canResult(r):hasAnyAccountAccess(currentTool),download=r?canResult(r):false;let body='';if(!preview){body=`<div class="notice amber">${I('lock')}<span>当前身份没有该工具或本次平台账号的访问权限，不展示数据明细。</span></div>${emptyView('数据访问受限','请联系管理员开启工具访问并分配可用账号。','lock')}`;if(r)body=`<div class="run-info-line">${statusPill(r.status)}${r.status==='running'?'<button class="text-btn" data-action="stop">\u505c\u6b62\u4efb\u52a1</button>':''}<span>已处理 ${r.processed} / ${r.items.length} 个${t.unit}</span></div>`+body}
+else if(!r){const dc=defaultConfig(currentTool),p=inputItems(dc,currentTool),rows=generateRows(currentTool,dc,p.valid[0],0).slice(0,5);body=`<div class="notice">${I('info')}<span>以下仅展示输出字段和模拟值。填写左侧参数并开始采集，可体验模拟运行流程。</span></div><div class="result-toolbar"><div><h3>输出格式示例</h3><small>${t.source} · ${t.output}</small></div><button class="btn" disabled>${I('download','i16')}下载结果</button></div>${tableMarkup(rows,t.columns)}<div class="table-caption"><span>示例数据 · 尚未运行</span><span>不绘制分析图表</span></div><div style="margin-top:25px" class="notice" >${I('file')}<span>完成后在此预览前 10 行，并下载完整数据。数据分析可在 Excel 或你常用的分析工具中完成。</span></div>`}
+else{const busy=r.status==='running',dirty=signature(configs[currentTool])!==signature(r.config);body=`<div class="notice"><span class="pill blue" style="font-size:8px">模拟数据</span><span>任务 <span class="mono">${r.id}</span> · ${esc(r.config.start&&t.dates?r.config.start+' 至 '+r.config.end:'当次输入范围')}<br>来源：${platforms[t.platform].name} / ${t.source} · ${formatTime(r.created)}<br>账号：${esc(r.accountSnapshot?.alias||'—')}</span></div><div id="dirty-warning" class="notice amber ${dirty?'':'hidden'}" style="margin-top:10px">${I('alert')}<span>左侧配置已修改，尚未重新运行。当前仍显示上次配置的结果。</span></div>${busy?`<div class="run-progress"><div class="between"><span>正在采集 · 已处理 ${r.processed} / ${r.items.length} 个${t.unit}</span><button class="text-btn" data-action="stop">停止任务</button></div><div class="progress-track" role="progressbar" aria-label="采集进度" aria-valuemin="0" aria-valuemax="${r.items.length}" aria-valuenow="${r.processed}"><div class="progress-fill" style="width:${Math.round(r.processed/r.items.length*100)}%"></div></div></div>`:''}<div class="run-info-line"><span>成功 <strong>${r.success}</strong> 项</span><span class="${r.failed.length?'failed':''}">失败 ${r.failed.length} 项</span>${r.processed<r.items.length?`<span>未处理 ${r.items.length-r.processed} 项</span>`:''}<span>已产出 <strong>${number(r.rows.length)}</strong> 行</span></div>${r.reason?`<div class="notice amber" style="margin-bottom:13px">${I('alert')}<span>${esc(r.reason)}</span></div>`:''}<div class="result-toolbar"><div><h3>数据明细</h3><small>仅预览前 10 行，下载包含全部已成功获取的行</small></div><button class="btn ${download&&r.rows.length?'primary':''}" data-action="download" ${!download||!r.rows.length||busy?'disabled':''} title="${!download?'当前身份无访问权限':''}">${I(!download?'lock':'download','i16')}${!download?'无访问权限':r.status==='complete'?'下载完整结果':'下载成功结果'}</button></div>${r.rows.length?tableMarkup(r.rows,t.columns):emptyView(busy?'正在准备结果':'暂无成功结果',busy?'完成第一批数据后自动更新。':'请查看运行说明或失败明细。')}<div class="table-caption"><span>显示 ${Math.min(10,r.rows.length)} / ${number(r.rows.length)} 行 · 模拟数据</span><span>失败项不填充为 0</span></div>${r.failed.length?`<div class="notice amber" style="margin-top:15px;display:block"><div class="between"><span>有 ${r.failed.length} 项未能获取数据，已保留成功结果。</span><button class="text-btn" data-action="failed-detail">查看失败明细</button></div>${!busy?`<div class="flex" style="margin-top:9px"><button class="btn sm" data-action="retry" ${runBlockReason(r.tool,r.config)?'disabled':''}>${I('refresh','i14')}仅重试失败项</button><button class="text-btn" data-action="download-fail" ${!download?'disabled':''}>下载失败清单</button></div>`:''}</div>`:''}<details class="run-details"><summary>运行说明</summary><dl><dt>任务归属</dt><dd>${esc(users.find(u=>u.id===r.owner)?.name||r.owner)} · 仅本人可见</dd><dt>平台账号</dt><dd>${esc(r.accountSnapshot?.alias||'—')}</dd><dt>工具版本</dt><dd>${t.title} ${esc(r.version||'v0.4')} · 本地模拟</dd><dt>参数快照</dt><dd>${r.items.length} 个${t.unit}${t.dates?' / '+r.config.start+' 至 '+r.config.end:''}${r.parent?' / 补跑自 '+r.parent:''}</dd><dt>数据性质</dt><dd>全部为本地规则生成的模拟值，未与真实平台连接。</dd><dt>关闭页面</dt><dd>模拟任务会停止，已保存结果可从本浏览器运行记录找回。</dd></dl></details>`}
+$('#result-panel').innerHTML=`<div class="panel-head"><h2><span class="step">2</span>采集结果</h2>${statusPill(r?.status||'example')}</div><div class="result-body">${body}</div><div class="result-foot"><span>${I('shield','i14')} 模拟数据 · 仅用于功能演示</span><span>数据预览 + CSV 交付</span></div>`;refreshConfigMeta()}
+function generateRows(id,c,item,index){const h=hash(item+id),status='成功';if(id==='trend'||id==='baidu')return days(c.start,c.end).map((date,i)=>({keyword:item,date,value:800+(h+i*973)%58000,status}));if(id==='keywords')return Array.from({length:c.limit},(_,i)=>({root:item,keyword:item+['推荐','测评','怎么选','方法','入门','清单','攻略','体验','原理','避坑'][i%10]+(i>=10?' '+(Math.floor(i/10)+1):''),index:Math.max(300,56000-(h%9000)-i*1700),rank:i+1,status}));if(id==='notes')return [{title:['通勤防晒记录','敏感肌护肤清单','户外装备整理'][index%3]+'（模拟）',author:'示例作者 '+String.fromCharCode(65+index%26),body:'这是用于说明输出字段的本地模拟正文，未获取真实笔记内容。',cover:`https://example.com/demo-cover/${h}.jpg`,url:item,status}];if(id==='industry')return [{brand:item,period:c.start+' ~ '+c.end,search:2000+h%63000,interaction:1000+(h*3)%43000,content:500+h%12000,status}];if(id==='douyin')return days(c.start,c.end).map((date,i)=>({keyword:item,date,search:2000+(h+i*897)%43000,total:6000+(h+i*768)%89000,status}));if(id==='product')return days(c.start,c.end).flatMap((date,i)=>['手淘搜索','推荐流量'].map((source,j)=>({item,date,source,visitors:150+(h+i*117+j*192)%2500,cart:20+(h+i*3+j*7)%120,status})));return ['全部来源 > 站内 > 搜索','全部来源 > 站内 > 推荐'].map((source,j)=>({shop:item,period:c.start+' ~ '+c.end,source,visitors:`${1000+(h+j*271)%3000} ~ ${5000+(h+j*271)%3000}`,status}))}
+function validate(c,id){const errors=[],p=inputItems(c,id);if(!p.valid.length)errors.push('请至少输入一个有效项目。');if(p.invalid.length)errors.push(`第 ${p.invalid.join('、')} 行格式不正确，请修正后提交。`);if(p.valid.length>50)errors.push('演示版每次最多处理 50 个输入项。');if(tools[id].dates){const n=countDays(c.start,c.end);if(!Number.isFinite(n)||n<1||n>90||c.end>today())errors.push('请选择有效日期范围（最多 90 天，不能晚于今天）。')}return errors}
+function startRun(){const blocked=runBlockReason(currentTool,configs[currentTool]);if(blocked)return toast(blocked,'lock');configErrors=validate(configs[currentTool],currentTool);if(configErrors.length){renderConfig();$('#config-errors').scrollIntoView({behavior:'smooth',block:'nearest'});return}launchRun(currentTool,clone(configs[currentTool]))}
+function launchRun(id,c,items=null,parent=null){
+ if(runs.some(r=>r.status==='running'))return toast('演示版一次运行一个任务，请等待当前任务完成。','info');
+ const blocked=runBlockReason(id,c);if(blocked)return toast(blocked,'lock');
+ const account=accounts.find(a=>a.id===c.accountId);
+ const r={accountId:account.id,accountRevision:account.revision,version:'v0.4',accountSnapshot:{alias:account.alias,service:account.service},id:'DEMO-'+uid(),owner:currentUser,tool:id,config:c,items:items||inputItems(c,id).valid,rows:[],failed:[],processed:0,success:0,status:'running',created:Date.now(),parent,reason:''};
+ runs.unshift(r);runs=runs.slice(0,100);selectedRun[currentUser+':'+id]=r.id;persist();renderTool();toast('模拟任务已开始，不会访问真实平台。');clearInterval(timer);timer=setInterval(()=>tick(r),300);
+}
+function tick(r){if(r.status!=='running'){clearInterval(timer);return}if(runBlockReason(r.tool,r.config,r.owner)||accounts.find(a=>a.id===r.accountId)?.revision!==r.accountRevision){r.status='stopped';r.reason=runBlockReason(r.tool,r.config,r.owner)||'账号连接已更新，任务已停止。';clearInterval(timer)}else{const batch=Math.max(1,Math.ceil(r.items.length/12));for(let i=0;i<batch&&r.processed<r.items.length;i++){const idx=r.processed,item=r.items[idx];if(!r.parent&&hash(item+r.tool)%19===0)r.failed.push({item,reason:'模拟平台响应超时'});else{r.rows.push(...generateRows(r.tool,r.config,item,idx));r.success++}r.processed++}if(r.processed===r.items.length){r.status=r.failed.length?(r.success?'partial':'failed'):'complete';clearInterval(timer);if(r.owner===currentUser)toast('模拟任务完成，已生成 '+number(r.rows.length)+' 行数据。')}}persist();if(page==='tool'&&r.owner===currentUser&&currentTool===r.tool){renderResult();if(r.status!=='running')renderConfig()}if(page==='history')renderHistory();if(r.status!=='running')$('#live-region').textContent='任务'+statusMap[r.status][1]}
+function stopRun(){const r=runForTool();if(!r||r.status!=='running'||r.owner!==currentUser)return;r.status='stopped';r.reason='用户已停止模拟任务，已生成的结果已保留。';clearInterval(timer);persist();renderTool();toast('任务已停止。')}
+function retry(){const r=runForTool();if(!r||!r.failed.length||!can(r.tool))return;configs[currentTool]=clone(r.config);launchRun(r.tool,clone(r.config),r.failed.map(f=>f.item),r.id)}
+function formatTime(n){const d=new Date(n);return `${localDate(d)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`}
+function historyDateWindow(){
+ const f=historyFilters;
+ if(f.period==='custom')return {start:f.start,end:f.end};
+ if(f.period==='all')return {start:'',end:''};
+ const n=f.period==='today'?1:Number(f.period),d=new Date();d.setDate(d.getDate()-n+1);
+ return {start:localDate(d),end:today()};
+}
+function resetHistoryFilters(){historyFilters={platform:'all',tool:'all',period:'all',start:'',end:''};renderHistory();}
+function renderHistory(){
+ const f=historyFilters,all=runs.filter(r=>r.owner===currentUser).sort((a,b)=>b.created-a.created);
+ const available=allTools.filter(t=>f.platform==='all'||tools[t].platform===f.platform);
+ if(!available.includes(f.tool))f.tool='all';
+ const window=historyDateWindow(),invalid=!!(window.start&&window.end&&window.start>window.end);
+ const list=invalid?[]:all.filter(r=>(f.platform==='all'||tools[r.tool].platform===f.platform)&&(f.tool==='all'||r.tool===f.tool)&&(!window.start||localDate(new Date(r.created))>=window.start)&&(!window.end||localDate(new Date(r.created))<=window.end));
+ const active=f.platform!=='all'||f.tool!=='all'||f.period!=='all';
+ $('#main').innerHTML=`<div class="heading"><div><div class="eyebrow">RUN HISTORY</div><h1>运行记录</h1><p>按平台、工具和创建时间，找回自己的采集结果。</p></div><div class="heading-actions"><button class="btn primary" data-page="catalog">${I('plus','i16')}新建采集</button></div></div>
+ <section class="panel history-filter-panel" aria-label="筛选运行记录"><div class="history-filter-grid">
+ <div class="field"><div class="field-label"><label for="history-platform">平台</label></div><select id="history-platform"><option value="all">全部平台</option>${Object.entries(platforms).map(([id,p])=>`<option value="${id}" ${f.platform===id?'selected':''}>${p.name}</option>`).join('')}</select></div>
+ <div class="field"><div class="field-label"><label for="history-tool">工具</label></div><select id="history-tool"><option value="all">全部工具</option>${available.map(t=>`<option value="${t}" ${f.tool===t?'selected':''}>${tools[t].title}</option>`).join('')}</select></div>
+ <div class="field"><div class="field-label"><label for="history-period">创建时间</label></div><select id="history-period">${[['all','全部时间'],['today','今天'],['7','近 7 天'],['30','近 30 天'],['custom','自定义日期']].map(([v,n])=>`<option value="${v}" ${f.period===v?'selected':''}>${n}</option>`).join('')}</select></div>
+ <button class="btn ghost reset-history" data-action="reset-history" ${active?'':'disabled'}>${I('refresh','i14')}重置筛选</button></div>
+ ${f.period==='custom'?`<div class="history-custom"><label for="history-start">起止日期</label><input id="history-start" type="date" value="${esc(f.start)}" aria-label="记录开始日期"><span>至</span><input id="history-end" type="date" value="${esc(f.end)}" aria-label="记录结束日期"><small>包含起止当天；可只填一端</small></div>`:''}
+ <div class="history-filter-hint ${invalid?'error':''}" ${invalid?'role="alert"':''}>${I(invalid?'alert':'info','i14')}${invalid?'开始日期不能晚于结束日期，请调整筛选。':'时间筛选依据任务创建时间（本机时间），不是采集数据的查询日期。'}</div></section>
+ <section class="panel history-panel"><div class="history-head"><h2>我的任务 <span class="pill">${list.length}</span></h2><p>${active?'匹配 '+list.length+' / '+all.length+' 条记录':'共 '+all.length+' 条记录'} · 仅本人可见</p></div>
+ ${list.length?`<div class="history-table-scroll"><table class="data-table history-table"><thead><tr><th>平台</th><th>工具 / 任务</th><th>平台账号</th><th>创建时间</th><th>状态</th><th>处理结果</th><th>操作</th></tr></thead><tbody>${list.map(r=>`<tr data-history-row="${esc(r.id)}"><td><div class="flex">${platformBadge(tools[r.tool].platform)}<span>${platforms[tools[r.tool].platform].name}</span></div></td><td><div class="history-tool"><div><b>${tools[r.tool].title}</b><small>${esc(r.id)}</small></div></div></td><td><span class="history-account" title="${esc(r.accountSnapshot?.alias||'—')}">${esc(r.accountSnapshot?.alias||'—')}</span></td><td class="history-date">${formatTime(r.created)}</td><td>${statusPill(r.status)}</td><td>${r.success} 成功 / ${r.failed.length} 失败</td><td><div class="history-actions"><button class="text-btn" data-view-run="${esc(r.id)}" ${canResult(r)?'':'disabled'}>查看</button><button class="text-btn" data-download-run="${esc(r.id)}" ${!canResult(r)||!r.rows.length||r.status==='running'?'disabled':''}>${I('download','i14')}下载</button></div></td></tr>`).join('')}</tbody></table></div>`:emptyView(invalid?'请调整日期范围':all.length?'没有匹配的运行记录':'还没有运行记录',invalid?'开始日期需要早于或等于结束日期。':all.length?'调整平台、工具或创建时间条件。':'从工具中心开始一次模拟采集，结果会显示在这里。','clock')}
+ ${!list.length&&active?'<div class="empty-action"><button class="btn sm" data-action="reset-history">清空筛选</button></div>':''}</section>
+ <div class="catalog-note">${I('info','i16')}<span>演示版在本浏览器最多保留 100 条任务记录。关闭页面不会继续运行，清除网站数据后记录会丢失。</span></div>${footer()}`;
+}
+function normalizeEditor(){if(!editor)return;cleanBindings(editor);allTools.forEach(t=>editor.grants[t]=editor.grants[t]===true);}
+function renderPermissions(){
+ const teams=[...new Set(users.map(u=>u.team))];if(memberTeam!=='all'&&!teams.includes(memberTeam))memberTeam='all';
+ const members=users.filter(u=>memberTeam==='all'||u.team===memberTeam);
+ if(!editor||!members.some(u=>u.id===editorUser)){editorUser=members[0]?.id||currentUser;editor=clone(users.find(u=>u.id===editorUser)||user());}
+ const e=editor,dirty=editorDirty(),listed=allTools.filter(t=>permPlatform==='all'||tools[t].platform===permPlatform),activeCount=allTools.filter(t=>e.grants[t]).length;
+ $('#main').innerHTML=`<div class="heading"><div><div class="eyebrow">ACCESS CONTROL</div><h1>权限配置</h1><p>每个工具只有一个访问开关；开启后即可采集、预览和下载。</p></div><div class="heading-actions"><button class="btn primary" data-action="add-member">${I('plus','i16')}新增成员</button></div></div>
+ <div class="permission-layout"><section class="panel member-panel"><div class="panel-head"><h2>团队成员</h2><span class="pill">${members.length} / ${users.length}</span></div>
+ <div class="member-team-filter"><label for="member-team-filter">按团队查看</label><select id="member-team-filter"><option value="all">全部团队（${users.length}）</option>${teams.map(team=>`<option value="${esc(team)}" ${memberTeam===team?'selected':''}>${esc(team)}（${users.filter(u=>u.team===team).length}）</option>`).join('')}</select></div>
+ <div class="member-list">${members.map(u=>`<button class="member ${u.id===editorUser?'active':''}" data-member="${esc(u.id)}" aria-pressed="${u.id===editorUser}"><span class="avatar">${esc(u.name.slice(-2))}</span><span><strong>${esc(u.name)}${u.id===currentUser?' <span class="pill blue" style="padding:0 4px;font-size:8px">我</span>':''}</strong><small>${esc(u.team)} · ${u.role==='admin'?'管理员':'成员'}</small></span>${I('chevron')}</button>`).join('')}</div><div class="member-summary">团队只用于筛选成员，不会批量变更授权。</div></section>
+ <section class="panel permission-editor"><div class="editor-top"><div class="editor-person"><div class="flex" style="gap:11px"><span class="avatar">${esc(e.name.slice(-2))}</span><div><h2>${esc(e.name)}</h2><small>${esc(e.team)} · ${esc(e.id)}</small></div></div><span class="pill ${expired(e)?'amber':activeCount?'green':''}" id="member-access-status"><span class="dot"></span>${expired(e)?'访问授权已过期':activeCount?'已配置访问权限':'尚未授权'}</span></div>
+ <div class="editor-form"><div class="field"><div class="field-label"><label for="member-role">管理身份</label></div><select id="member-role" ${e.id===currentUser?'disabled':''}><option value="member" ${e.role==='member'?'selected':''}>普通成员</option><option value="admin" ${e.role==='admin'?'selected':''}>平台管理员</option></select><div class="field-hint" style="font-size:9px">${e.id===currentUser?'不能修改自己的管理身份。':'管理员可维护账号和权限，工具访问仍需授权。'}</div></div>
+ <div class="field"><div class="field-label"><label for="member-expiry">访问授权有效期</label></div><div class="expiry-control"><input type="date" id="member-expiry" value="${esc(e.expiry)}" ${e.expiry?'':'disabled'} aria-label="授权到期日期"><label><input type="checkbox" id="never-expire" ${!e.expiry?'checked':''}>长期</label></div><div class="field-hint" style="font-size:9px">到期日当天有效；过期后工具访问关闭。</div></div></div>
+ <div class="access-principle">${I('shield','i14')}一次授权，统一访问。运行记录与结果仍仅本人可见。</div></div>
+ <div class="permission-filters"><span class="label">工具访问 <span class="pill blue" id="grant-count">${activeCount} / ${allTools.length}</span></span><div class="flex"><label for="perm-platform" class="small muted" style="font-size:10px">平台</label><select id="perm-platform"><option value="all">全部平台</option>${Object.entries(platforms).map(([p,d])=>`<option value="${p}" ${p===permPlatform?'selected':''}>${d.name}</option>`).join('')}</select></div></div>
+ <div class="matrix-scroll"><table class="matrix access-matrix"><thead><tr><th>平台 / 工具</th><th>允许访问</th><th>可用账号</th></tr></thead><tbody>${Object.keys(platforms).filter(p=>listed.some(t=>tools[t].platform===p)).map(p=>{const ids=listed.filter(t=>tools[t].platform===p);return `<tr class="group-row"><td><span class="group-name">${platformBadge(p)}${platforms[p].name}<span class="muted">${ids.length} 个工具</span></span></td><td><label class="check-cell"><input type="checkbox" data-group="${p}" aria-label="${platforms[p].name}全部允许访问" ${ids.every(t=>e.grants[t])?'checked':''}></label></td><td><span class="group-account-note">各工具单独选择账号</span></td></tr>${ids.map(t=>`<tr><td><span class="tool-title">${tools[t].title}</span><span class="tool-source">${tools[t].source}</span></td><td><label class="access-toggle"><input type="checkbox" data-grant="${t}" aria-label="${tools[t].title}允许访问" ${e.grants[t]?'checked':''}><span class="toggle-track" aria-hidden="true"></span></label></td><td>${bindingSummaryMarkup(t,e)}</td></tr>`).join('')}`;}).join('')}</tbody></table></div>
+ <div class="permission-note">开启访问后选择可用平台账号。不再区分运行、预览、下载权限；新账号不会自动加入已有授权。</div>
+ <div class="permission-save"><span id="save-state" class="save-state ${dirty?'dirty':''}">${dirty?'有未保存的修改':'修改后保存，再切换演示身份验证'}</span><div class="flex"><button class="btn ghost" data-action="clear-grants">清空授权</button><button class="btn" data-action="discard-permissions" ${dirty?'':'disabled'}>重置</button><button class="btn primary" data-action="save-permissions" ${dirty?'':'disabled'}>${I('check','i16')}保存权限</button></div></div></section></div>
+ <div class="catalog-note">${I('shield','i16')}<span>仅演示前端授权交互。账号负责人维护连接，不自动获得工具访问权限；正式系统仍需服务端鉴权。</span></div>${footer()}`;syncMatrix();
+}
+function changeMemberTeam(team){
+ const next=users.filter(u=>team==='all'||u.team===team),mustSwitch=!next.some(u=>u.id===editorUser);
+ const apply=()=>{memberTeam=team;if(mustSwitch){editorUser=next[0]?.id||currentUser;editor=clone(users.find(u=>u.id===editorUser)||user());}renderPermissions();};
+ if(mustSwitch){$('#member-team-filter').value=memberTeam;safeLeave(apply);}else apply();
+}
+function syncMatrix(){
+ if(!editor||page!=='permissions')return;
+ $$('[data-grant]').forEach(el=>el.checked=editor.grants[el.dataset.grant]===true);
+ $$('[data-group]').forEach(el=>{const vals=allTools.filter(t=>tools[t].platform===el.dataset.group).map(t=>editor.grants[t]);el.checked=vals.every(Boolean);el.indeterminate=vals.some(Boolean)&&!el.checked;});
+ $$('[data-bind-tool]').forEach(el=>{el.disabled=!editor.grants[el.dataset.bindTool];});
+ const dirty=editorDirty(),count=allTools.filter(t=>editor.grants[t]).length;
+ $('#save-state').textContent=dirty?'有未保存的修改':'修改后保存，再切换演示身份验证';$('#save-state').classList.toggle('dirty',dirty);
+ $('[data-action="save-permissions"]').disabled=!dirty;$('[data-action="discard-permissions"]').disabled=!dirty;$('#grant-count').textContent=count+' / '+allTools.length;
+ const badge=$('#member-access-status');if(badge){badge.className='pill '+(expired(editor)?'amber':count?'green':'');badge.innerHTML='<span class="dot"></span>'+(expired(editor)?'访问授权已过期':count?'已配置访问权限':'尚未授权');}
+}
+function setGrant(ids,value){if(!isAdmin()||!editor)return;ids.forEach(t=>editor.grants[t]=!!value);syncMatrix();}
+function savePermissions(){if(!isAdmin()||!editor)return toast('仅管理员可以修改权限。','lock');if(editor.expiry&&!/^\d{4}-\d{2}-\d{2}$/.test(editor.expiry))return toast('请设置有效的到期日期。','alert');normalizeEditor();users[users.findIndex(u=>u.id===editorUser)]=clone(editor);persist();renderChrome();renderPermissions();toast('权限已保存，可切换演示身份验证。')}
+function showModal(title,body,confirmLabel=null,action=null){modalReturn=document.activeElement;$('#modal-title').textContent=title;$('#modal-body').innerHTML=body;$('#modal-foot').innerHTML=confirmLabel?`<button class="btn" data-action="close-modal">取消</button><button class="btn primary" data-action="modal-confirm">${confirmLabel}</button>`:`<button class="btn primary" data-action="close-modal">知道了</button>`;modalAction=action;$('#modal').showModal()}
+function closeModal(){$('#modal').close();modalAction=null;bindingDraft=null;$('#modal-body').innerHTML='';$('#modal').classList.remove('wide-modal');if(modalReturn?.isConnected)modalReturn.focus()}
+function addMember(){safeLeave(()=>showModal('新增演示成员',`<div class="field"><div class="field-label"><label for="new-name">成员姓名<span class="required">*</span></label></div><input id="new-name" maxlength="20" placeholder="例如：李可" autocomplete="off"></div><div class="field"><div class="field-label"><label for="new-team">所属团队<span class="required">*</span></label></div><input id="new-team" maxlength="30" placeholder="例如：内容研究组" autocomplete="off"></div><div id="member-errors" class="field-hint error" role="alert"></div><div class="notice">${I('info')}<span>仅新增本地演示身份，不创建真实公司账号。初始工具权限全部关闭。</span></div>`, '创建成员',()=>{if(!isAdmin())return false;const name=$('#new-name').value.trim(),team=$('#new-team').value.trim();if(!name||!team){$('#member-errors').textContent='请填写姓名和团队。';return false}const u={id:'member-'+uid(),name,team,role:'member',expiry:'',grants:blankGrants(),bindings:blankBindings()};users.push(u);memberTeam=team;editorUser=u.id;editor=clone(u);persist();renderChrome();renderPermissions();toast('成员已创建，请配置需要的工具权限。')}))}
+function csvCell(v){let s=String(v??'');if(/^[\s\u0000-\u001f]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"'}
+function saveFile(content,name,type='text/csv;charset=utf-8'){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}
+function downloadRun(r,failed=false){
+ if(!r||!canResult(r))return toast('无权访问该结果。','lock');
+ if(r.status==='running')return toast('请等待任务完成或停止后下载。','info');
+ const t=tools[r.tool],rows=failed?r.failed:r.rows;if(!rows.length)return toast('暂无可下载的数据。','info');
+ const columns=failed?[['item','失败输入项'],['reason','失败原因']]:t.columns;
+ const meta=['数据性质','来源平台','工具','平台账号','任务编号','创建时间'];
+ const lines=[[...meta,...columns.map(c=>c[1])],...rows.map(row=>['模拟数据',platforms[t.platform].name,t.title,r.accountSnapshot?.alias||'',r.id,formatTime(r.created),...columns.map(c=>row[c[0]])])];
+ saveFile('\ufeff'+lines.map(line=>line.map(csvCell).join(',')).join('\r\n'),`${t.title}_${failed?'失败清单':'模拟结果'}_${r.id}.csv`);toast('已生成 CSV，共 '+number(rows.length)+' 行。');
+}
+function parseCSV(text){text=text.replace(/^﻿/,'');const rows=[];let row=[],cell='',quoted=false;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++}else quoted=!quoted}else if(c===','&&!quoted){row.push(cell);cell=''}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);rows.push(row);row=[];cell=''}else cell+=c}if(quoted)throw new Error('文件引号未闭合，请使用模板重新导出。');if(cell||row.length){row.push(cell);rows.push(row)}return rows.filter(r=>r.some(c=>c.trim()))}
+async function importFile(file){if(!file)return;const id=currentTool;if(!/\.(csv|txt)$/i.test(file.name))return toast('仅支持 UTF-8 编码的 CSV 或 TXT 文件。','alert');if(file.size>2*1024*1024)return toast('文件不能超过 2 MB。','alert');try{const text=(await file.text()).replace(/^﻿/,'');if(text.includes('�'))throw new Error('请将文件另存为 UTF-8 编码后导入。');let vals;if(/\.csv$/i.test(file.name)){const rows=parseCSV(text);if(rows.some(r=>r.length!==1))throw new Error('请使用单列 CSV 模板，或将目标列复制到输入框。');vals=rows.map(r=>r[0].trim());if(['输入项','keyword','url','item_id','shop_id','input','关键词','链接','商品ID'].includes(vals[0]))vals.shift()}else vals=text.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);if(!vals.length)throw new Error('文件没有可导入的输入项。');if(vals.join('\n').length>30000)throw new Error('输入内容过长，请拆分后导入。');if(page!=='tool'||currentTool!==id)return toast('工具已切换，未替换当前输入。','info');const apply=()=>{configs[id].input=vals.join('\n');configs[id].fileName=file.name;configErrors=[];renderConfig();renderResult();toast('已导入 '+vals.length+' 行，请检查输入识别结果。')};if(configs[id].input.trim())showModal('替换当前输入？',`将使用 <strong>${esc(file.name)}</strong> 中的 ${vals.length} 行内容，替换当前文本框。不会与原输入合并。`, '替换输入',apply);else apply()}catch(e){toast(e.message||'文件解析失败。','alert')}}
+function failedDetail(){const r=runForTool();if(!r||!canResult(r))return;showModal('失败明细',`<p style="margin-bottom:12px">下列项目未获取到数据，未以 0 填充。</p>${tableMarkup(r.failed,[['item','输入项'],['reason','失败原因']],50)}`)}
+function switchIdentity(id){if(!users.some(u=>u.id===id))return;$('#identity').value=currentUser;safeLeave(()=>{currentUser=id;editor=null;if(page==='accounts'&&!canManageAnyAccount())page='catalog';if(page==='permissions'&&!isAdmin())page='catalog';else if(page==='permissions'){memberTeam='all';editorUser=id;editor=clone(user())}persist();render();toast('已切换为 '+user().name+'，功能按当前授权展示。')})}
+const clickActions={
+ 'clear-filter':()=>{platform='all';catalogQuery='';renderCatalog()},
+ 'reset-config':()=>{if(runForTool()?.status==='running')return;configs[currentTool]=defaultConfig(currentTool);configErrors=[];renderConfig();renderResult()},
+ sample:()=>{configs[currentTool].input=tools[currentTool].sample;configs[currentTool].fileName='';configErrors=[];renderConfig();renderResult()},
+ start:startRun,stop:stopRun,retry,download:()=>downloadRun(runForTool()),'download-fail':()=>downloadRun(runForTool(),true),'failed-detail':failedDetail,
+ import:()=>$('#file-input')?.click(),
+ template:()=>saveFile('﻿"输入项"\r\n'+tools[currentTool].sample.split('\n').map(csvCell).join('\r\n'),tools[currentTool].title+'_输入模板.csv'),
+ 'save-permissions':savePermissions,'discard-permissions':()=>{editor=clone(users.find(u=>u.id===editorUser));renderPermissions()},
+ 'clear-grants':()=>{if(!isAdmin())return;showModal('清空此成员的工具授权？',`将清空 <strong>${esc(editor.name)}</strong> 在全部平台的工具访问权限。需点击“保存权限”后才生效。`, '清空授权',()=>{editor.grants=blankGrants();editor.bindings=blankBindings();renderPermissions()})},
+ 'add-member':addMember,'close-modal':closeModal,'modal-confirm':()=>{const action=modalAction;const result=action?.();if(result!==false&&modalAction===action)closeModal()}
+};
+document.addEventListener('click',ev=>{const el=ev.target.closest('button');if(!el||el.disabled)return;if(el.dataset.page)return go(el.dataset.page);if(el.dataset.openTool)return openTool(el.dataset.openTool);if(el.dataset.platform){platform=el.dataset.platform;renderCatalog();return}if(el.dataset.member){const id=el.dataset.member;safeLeave(()=>{editorUser=id;editor=clone(users.find(u=>u.id===id));renderPermissions()});return}if(el.dataset.days){Object.assign(configs[currentTool],range(Number(el.dataset.days)),{preset:Number(el.dataset.days)});renderConfig();renderResult();return}if(el.dataset.viewRun){const r=runs.find(r=>r.id===el.dataset.viewRun&&r.owner===currentUser);if(r)openTool(r.tool,r);return}if(el.dataset.downloadRun)return downloadRun(runs.find(r=>r.id===el.dataset.downloadRun));if(el.dataset.action)clickActions[el.dataset.action]?.()});
+document.addEventListener('input',ev=>{const el=ev.target;if(el.id==='tool-search'){catalogQuery=el.value;const pos=el.selectionStart;renderCatalog();$('#tool-search').focus();try{$('#tool-search').setSelectionRange(pos,pos)}catch(e){}return}if(el.dataset.config){const key=el.dataset.config,c=configs[currentTool];c[key]=key==='limit'?Number(el.value):el.value;if(['start','end'].includes(key))c.preset=0;if(key==='input'&&c.fileName){c.fileName='';if($('#file-hint'))$('#file-hint').textContent='已手动修改输入内容'}configErrors=[];if($('#config-errors'))$('#config-errors').classList.add('hidden');refreshConfigMeta()}});
+document.addEventListener('change',ev=>{const el=ev.target;if(el.id==='identity')return switchIdentity(el.value);if(el.id==='tool-platform'){platform=el.value;const ids=allTools.filter(t=>platform==='all'||tools[t].platform===platform);if(!ids.includes(currentTool))currentTool=ids[0];configErrors=[];renderChrome();renderTool();return}if(el.id==='tool-picker')return openTool(el.value);if(el.id==='file-input'){const file=el.files[0];el.value='';return importFile(file)}if(el.id==='perm-platform'){permPlatform=el.value;renderPermissions();return}if(el.dataset.grant)return setGrant([el.dataset.grant],el.checked);if(el.dataset.group)return setGrant(allTools.filter(t=>tools[t].platform===el.dataset.group),el.checked);if(el.id==='member-role'){if(editor.id===currentUser)return;editor.role=el.value;syncMatrix();return}if(el.id==='never-expire'){if(el.checked)editor.expiry='';else{const d=new Date();d.setDate(d.getDate()+30);editor.expiry=localDate(d)}renderPermissions();return}if(el.id==='member-expiry'){if(!el.value){const d=new Date();d.setDate(d.getDate()+30);editor.expiry=localDate(d);el.value=editor.expiry;toast('请选择到期日期，或勾选“长期”。','info')}else editor.expiry=el.value;syncMatrix();return}if(el.dataset.config&&['start','end'].includes(el.dataset.config))$$('[data-days]').forEach(b=>b.classList.remove('active'))});
+$('#modal').addEventListener('cancel',ev=>{ev.preventDefault();closeModal()});
+$('#modal').addEventListener('click',ev=>{if(ev.target===$('#modal')){const r=$('#modal').getBoundingClientRect();if(ev.clientX<r.left||ev.clientX>r.right||ev.clientY<r.top||ev.clientY>r.bottom)closeModal()}});
+window.addEventListener('beforeunload',ev=>{if((editorDirty()&&page==='permissions')||accountFormDirty){ev.preventDefault();ev.returnValue=''}});
+
+/* ---------- Account-bound access: these are UX simulations, not security enforcement. ---------- */
+function canManageAccount(a){return !!a&&(isAdmin()||a.owner===currentUser);}
+function canManageAnyAccount(){return isAdmin()||accounts.some(a=>a.owner===currentUser);}
+
+function assignedAccounts(tool,who=currentUser){
+ const u=users.find(u=>u.id===who);if(!u||!can(tool,who))return [];
+ return accounts.filter(a=>a.service===serviceFor(tool)&&(u.bindings?.[tool]||[]).includes(a.id));
+}
+function hasAnyAccountAccess(tool,who=currentUser){return can(tool,who)&&assignedAccounts(tool,who).length>0;}
+function canResult(r){return !!r&&r.owner===currentUser&&can(r.tool)&&assignedAccounts(r.tool).some(a=>a.id===r.accountId);}
+function hasRunnableAccount(tool){return can(tool)&&assignedAccounts(tool).some(a=>a.status==='verified');}
+function toolAccessLabel(tool){
+ if(!can(tool))return I('lock','i14')+' 无访问权限';
+ if(!assignedAccounts(tool).length)return I('alert','i14')+' 未分配账号';
+ if(!hasRunnableAccount(tool))return '<span class="dot" style="color:var(--amber)"></span> 账号待连接';
+ return '<span class="dot" style="color:var(--green)"></span> 可采集';
+}
+function ensureAccount(tool){const c=configs[tool],list=assignedAccounts(tool);if(!list.some(a=>a.id===c.accountId))c.accountId=(list.find(a=>a.status==='verified')||list[0])?.id||'';}
+function runBlockReason(tool,c,who=currentUser){
+ if(!can(tool,who))return '当前成员的工具访问权限未授权或已到期。';
+ const a=accounts.find(a=>a.id===c.accountId);
+ if(!a||a.service!==serviceFor(tool))return '请先分配并选择适用于当前工具的平台账号。';
+ if(!assignedAccounts(tool,who).some(x=>x.id===a.id))return '当前成员未获授权使用该平台账号。';
+ if(a.status==='disabled')return '该账号已停用，请选择其他已授权账号。';
+ if(a.status==='expired')return '该账号登录已失效，请联系账号负责人更新连接。';
+ if(a.status!=='verified')return '该账号尚未通过模拟验证，请先配置并验证连接。';
+ return '';
+}
+const accountStatuses={verified:['green','已验证'],unverified:['amber','未验证'],expired:['red','登录失效'],disabled:['','已停用']};
+function connectionPill(a){
+ if(verificationTimers.has(a.id))return '<span class="pill blue"><span class="spinner"></span>模拟验证中</span>';
+ const [color,label]=accountStatuses[a.status]||accountStatuses.unverified;
+ return `<span class="pill ${color}"><span class="dot"></span>${label}<span class="demo-suffix">· 模拟</span></span>`;
+}
+function toolAccountMarkup(tool,c,busy){
+ const t=tools[tool],list=assignedAccounts(tool),a=list.find(a=>a.id===c.accountId),manager=a?canManageAccount(a):isAdmin();
+ return `<div class="tool-account"><div class="source">${platformBadge(t.platform)}<div><b>${platforms[t.platform].name} · ${t.source}</b><small>仅列出当前成员可用的账号</small></div>${isAdmin()?'<button class="icon-btn" data-page="accounts" title="平台账号管理" aria-label="平台账号管理">'+I('sliders','i16')+'</button>':''}</div>
+ <div class="field"><div class="field-label"><label for="run-account">使用账号<span class="required">*</span></label>${a?connectionPill(a):''}</div><select id="run-account" ${busy||!list.length?'disabled':''}>${!list.length?'<option value="">暂无获授权的账号</option>':list.map(item=>`<option value="${esc(item.id)}" ${item.id===c.accountId?'selected':''}>${esc(item.alias)}${item.status!=='verified'?' · '+accountStatuses[item.status][1]:''}</option>`).join('')}</select>
+ ${a?`<div class="account-context"><span>负责人 · ${esc(users.find(u=>u.id===a.owner)?.name||'未指定')}</span><span>${connectionMethods[a.method]}</span></div>`:''}</div>
+ ${!a?`<div class="notice amber">${I('lock')}<span>请先为此工具分配可用平台账号。${isAdmin()?'<br><button class="text-btn" data-page="permissions">前往权限配置</button>':'请联系管理员处理。'}</span></div>`:a.status!=='verified'?`<div class="notice ${a.status==='expired'?'red':'amber'}">${I('alert')}<span>${a.status==='expired'?'登录已失效，需要负责人更新连接。':a.status==='disabled'?'该账号已停用，无法发起新采集。':a.credentialConfigured?'连接信息已登记，但尚未通过模拟验证。':'尚未配置连接，请先补充演示连接信息。'}${manager?`<br><button class="text-btn" data-edit-account="${esc(a.id)}">${a.status==='expired'?'恢复连接':'配置连接'}</button>${a.status==='unverified'&&a.credentialConfigured?` <button class="text-btn" data-verify-account="${esc(a.id)}">模拟验证</button>`:''}`:'请联系 '+esc(users.find(u=>u.id===a.owner)?.name||'账号负责人')+' 处理。'}</span></div>`:''}
+ <div class="account-bound-note">${I('lock','i14')}账号凭据不向普通使用者展示</div></div>`;
+}
+/* ---------- Management list ---------- */
+function renderAccounts(){
+ if(!canManageAnyAccount())return;
+ const accessible=accounts.filter(canManageAccount);
+ const list=accessible.filter(a=>(accountPlatform==='all'||services[a.service].platform===accountPlatform)&&(accountStatusFilter==='all'||a.status===accountStatusFilter)&&(!accountQuery||(a.alias+services[a.service].name+(users.find(u=>u.id===a.owner)?.name||'')).toLowerCase().includes(accountQuery.toLowerCase())));
+ $('#main').innerHTML=`
+ <div class="heading"><div><div class="eyebrow">PLATFORM CONNECTIONS</div><h1>平台账号</h1><p>集中维护平台连接；同事使用账号别名，不接触原始凭据。</p></div>
+ <div class="heading-actions">${isAdmin()?`<button class="btn" data-page="permissions">${I('shield','i16')}权限配置</button><button class="btn primary" data-action="add-account">${I('plus','i16')}新增账号</button>`:'<span class="pill blue">仅管理本人负责的账号</span>'}</div></div>
+ <section class="connection-principle" aria-label="账号管理说明"><div class="principle-icon">${I('link','i20')}</div><div><strong>配置连接 → 授权使用 → 选择账号采集</strong><p>按具体服务分别配置。同一平台的不同服务，不默认共用登录会话。</p></div><span class="pill">${new Set(accessible.map(a=>a.service)).size} 个服务 · ${accessible.length} 个账号</span></section>
+ <section class="filter-bar account-filters" aria-label="筛选平台账号"><div class="flex wrap"><span class="filter-title">平台</span><div class="platforms">
+ ${['all',...Object.keys(platforms)].map(p=>`<button class="platform-chip ${accountPlatform===p?'active':''}" data-account-platform="${p}" aria-pressed="${accountPlatform===p}">${p==='all'?'全部平台':platforms[p].name}<small>${accessible.filter(a=>p==='all'||services[a.service].platform===p).length}</small></button>`).join('')}</div></div>
+ <div class="account-filter-right"><select id="account-status-filter" aria-label="按连接状态筛选"><option value="all">全部状态</option>${Object.entries(accountStatuses).map(([v,arr])=>`<option value="${v}" ${accountStatusFilter===v?'selected':''}>${arr[1]}</option>`).join('')}</select><div class="search">${I('search','i14')}<input id="account-search" type="search" value="${esc(accountQuery)}" placeholder="账号、服务或负责人" aria-label="搜索平台账号"></div></div></section>
+ <section class="panel account-panel"><div class="panel-head"><h2>平台连接 <span class="pill">${list.length}</span></h2><span class="small muted">验证状态与时间均为演示</span></div>
+ <div class="account-table-scroll"><table class="account-table"><thead><tr><th>账号 / 平台服务</th><th>负责人 / 连接方式</th><th>连接状态 / 最近验证</th><th>操作</th></tr></thead><tbody>
+ ${list.map(a=>{const svc=services[a.service],busy=runs.some(r=>r.accountId===a.id&&r.status==='running');
+ return `<tr data-account-row="${esc(a.id)}"><td><div class="account-name">${platformBadge(svc.platform)}<div><b>${esc(a.alias)}</b><small>${platforms[svc.platform].name} / ${svc.name}</small></div></div></td>
+ <td><span>${esc(users.find(u=>u.id===a.owner)?.name||'未指定')}</span><small>${connectionMethods[a.method]}</small></td>
+ <td>${connectionPill(a)}<small>${a.verifiedAt?formatTime(a.verifiedAt):'尚无验证记录'}${busy?' · 任务占用中':''}</small></td>
+ <td><div class="account-row-actions"><button class="text-btn" data-edit-account="${esc(a.id)}">${a.status==='expired'?'恢复连接':'配置'}</button><button class="text-btn" data-verify-account="${esc(a.id)}" ${a.status==='disabled'||a.status==='expired'||!a.credentialConfigured||busy||verificationTimers.has(a.id)?'disabled':''} title="${!a.credentialConfigured?'请先配置连接':'仅模拟，不访问真实平台'}">模拟验证</button><button class="text-btn ${a.status==='disabled'?'':'danger-text'}" data-toggle-account="${esc(a.id)}">${a.status==='disabled'?'启用':'停用'}</button></div></td></tr>`;
+ }).join('')}</tbody></table></div>
+ ${!list.length?emptyView('没有匹配的账号','调整筛选条件，或由管理员新增平台账号。','link'):''}
+ <div class="account-table-foot"><span>${I('lock','i14')}新增账号默认不向成员授权</span><span>停用阻止采集，不自动删除历史结果</span></div></section>
+ <div class="account-security-note">${I('shield','i20')}<div><strong>当前是离线原型，请勿输入真实密码或 Cookie。</strong><p>本页仅保存账号别名、负责人、连接方式和模拟状态。输入的凭据不上传、不持久化，保存或关闭面板后清空；正式版需接入服务端凭据存储、执行端验证和鉴权。</p></div></div>${footer()}`;
+}
+function repaintAccountContext(){
+ renderChrome();
+ if(page==='accounts')renderAccounts();
+ else if(page==='tool'){renderConfig();renderResult();}
+ else if(page==='catalog')renderCatalog();
+ else if(page==='history')renderHistory();
+}
+
+/* ---------- Right-side connection editor. Secrets exist only in transient inputs. ---------- */
+function openAccountEditor(id=null){
+ const a=id?accounts.find(a=>a.id===id):null;
+ if(a?!canManageAccount(a):!isAdmin())return toast('无权维护该平台账号。','lock');
+ if(a&&runs.some(r=>r.accountId===a.id&&r.status==='running'))return showModal('账号正在使用','请先停止该账号的模拟任务，再修改连接。停用账号会停止使用它的任务。');
+ if(a&&verificationTimers.has(a.id))return toast('请先等待本次模拟验证结束。','info');
+ accountReturn=document.activeElement;
+ accountDraft=a?clone(a):{id:'',service:Object.keys(services).find(s=>accountPlatform==='all'||services[s].platform===accountPlatform)||'jug',alias:'',owner:currentUser,method:'login',loginMode:'manual',credentialConfigured:false,status:'unverified',revision:0,created:Date.now(),updated:Date.now(),verifiedAt:0};
+ accountDraft.loginDemoDone=false;accountDraft.credsTouched=false;accountFormDirty=false;
+ renderAccountEditor();$('#account-drawer').showModal();
+}
+function renderAccountEditor(){
+ const a=accountDraft;if(!a)return;const svc=services[a.service],editing=!!a.id,admin=isAdmin();
+ $('#account-drawer-content').innerHTML=`<div class="drawer-header"><div><div class="eyebrow">PLATFORM CONNECTION</div><h2 id="account-drawer-title">${editing?'配置平台账号':'新增平台账号'}</h2><p>${editing?esc(a.alias):'选择平台服务，填写账号信息并建立连接。'}</p></div><button class="icon-btn" data-action="close-account" aria-label="关闭账号配置">${I('close','i20')}</button></div>
+ <div class="drawer-body"><div class="notice amber credential-warning">${I('shield')}<span><strong>仅输入虚构示例，不要粘贴真实凭据。</strong><br>本原型不会登录真实平台，凭据输入不上传、不保存。</span></div>
+ <div class="drawer-section-title"><span class="step">1</span><h3>账号信息</h3>${editing?connectionPill(a):''}</div>
+ <div class="account-form-grid"><div class="field"><div class="field-label"><label for="account-platform">所属平台<span class="required">*</span></label></div><select id="account-platform" ${editing?'disabled':''}>${Object.entries(platforms).map(([p,d])=>`<option value="${p}" ${svc.platform===p?'selected':''}>${d.name}</option>`).join('')}</select></div>
+ <div class="field"><div class="field-label"><label for="account-service">具体服务<span class="required">*</span></label></div><select id="account-service" ${editing?'disabled':''}>${Object.entries(services).filter(([id,s])=>s.platform===svc.platform).map(([id,s])=>`<option value="${id}" ${id===a.service?'selected':''}>${s.name}</option>`).join('')}</select></div>
+ <div class="field"><div class="field-label"><label for="account-alias">账号别名<span class="required">*</span></label></div><input id="account-alias" data-account-field="alias" maxlength="40" value="${esc(a.alias)}" placeholder="例如：聚光公共账号 03" autocomplete="off"></div>
+ <div class="field"><div class="field-label"><label for="account-owner">账号负责人<span class="required">*</span></label></div><select id="account-owner" data-account-field="owner" ${admin?'':'disabled'}>${users.map(u=>`<option value="${esc(u.id)}" ${u.id===a.owner?'selected':''}>${esc(u.name)} · ${esc(u.team)}</option>`).join('')}</select></div></div>
+ <div class="field-hint drawer-hint">适用工具：${svc.tools.map(t=>tools[t].title).join('、')}。${editing?'更换平台或服务请新增账号。':''}</div>
+ <div class="drawer-section-title"><span class="step">2</span><h3>建立连接</h3><span class="pill">两种方式</span></div>
+ <div class="connection-methods" role="group" aria-label="选择连接方式">${Object.entries(connectionMethods).map(([m,label])=>`<button class="method-option ${a.method===m?'active':''}" data-connection-method="${m}" aria-pressed="${a.method===m}">${I(m==='login'?'terminal':'file','i16')}<span>${label}</span></button>`).join('')}</div>
+ <div class="field-hint method-hint">账号登录用于建立会话；Cookie 导入用于提供已有会话。</div>
+ <div id="credential-area">${credentialMarkup()}</div><div id="account-errors" class="form-errors hidden" role="alert"></div>
+ ${editing?`<details class="connection-log"><summary>连接记录</summary><div>最近操作：${esc(a.lastEvent||'—')}<br>最近验证：${a.verifiedAt?formatTime(a.verifiedAt)+'（模拟）':'尚未验证'}<br>仅保存“${a.credentialConfigured?'已配置':'未配置'}”标记，不保存或回显原始凭据。</div></details>`:''}
+ </div><div class="drawer-footer"><div><strong>保存配置后，还需验证连接</strong><small>返回列表点击“模拟验证”，才可用于模拟采集。</small></div><div class="flex"><button class="btn" data-action="close-account">取消</button><button class="btn primary" data-action="save-account">${I('check','i16')}保存配置</button></div></div>`;
+}
+
+function credentialMarkup(){
+ const a=accountDraft,existing=a.credentialConfigured&&!a.credsTouched;
+ if(a.method==='login')return `<div class="credential-box login-box"><div class="login-explanation"><span class="browser-connection-icon">${I('terminal')}</span><div><h3>在受控浏览器中完成账号登录</h3><p>账密用于辅助登录，登录成功后由执行端复用会话采集。</p></div></div>
+ <div class="login-route" role="group" aria-label="账号登录辅助方式"><label><input type="radio" name="login-route" value="manual" ${a.loginMode!=='password'?'checked':''}>手动登录 / 扫码</label><label><input type="radio" name="login-route" value="password" ${a.loginMode==='password'?'checked':''}>账密辅助登录</label></div>
+ ${a.loginMode==='password'?`<div class="login-password-fields"><div class="between"><span class="small muted">账密 → 浏览器登录 → 建立会话</span><button class="text-btn" data-action="fill-credential-demo">填入虚构示例</button></div><div class="field"><div class="field-label"><label for="demo-login">登录账号</label></div><input id="demo-login" class="secret-input" maxlength="120" autocomplete="off" spellcheck="false" placeholder="仅输入虚构账号，如 demo-user"></div><div class="field"><div class="field-label"><label for="demo-password">登录密码</label></div><input id="demo-password" class="secret-input" type="password" maxlength="200" autocomplete="new-password" placeholder="仅输入虚构密码，不会保存"></div><p class="login-help">正式接入时，需适配平台登录流程；遇到验证码或二次验证由负责人完成。</p></div>`:`<p class="login-help manual-help">正式接入后，在受控浏览器中扫码或手动完成验证。本页不打开真实登录窗口，也不会读取当前浏览器的登录状态。</p>`}
+ <div class="login-complete"><span class="pill ${a.loginDemoDone?'green':existing?'blue':''}">${a.loginDemoDone?'已建立模拟登录会话':existing?'已有模拟登录会话':'尚未建立会话'}</span><button class="btn primary sm" data-action="simulate-account-login">${I('play','i14')}${a.loginMode==='password'?'模拟账密登录':'模拟完成登录'}</button></div>
+ <div class="credential-storage-note">${I('lock','i14')}输入内容仅在当前表单中临时存在，不保存原始账密。</div></div>`;
+ return `<div class="credential-box"><div class="between"><h3>导入已有会话（演示）</h3><button class="text-btn" data-action="fill-credential-demo">填入虚构示例</button></div><div class="field"><div class="field-label"><label for="cookie-format">输入格式</label></div><select id="cookie-format"><option value="cookie">Cookie 文本（name=value）</option><option value="state">浏览器会话 JSON（示例结构）</option></select></div><div class="field"><div class="field-label"><label for="demo-cookie">Cookie / 会话内容</label><button class="text-btn" data-action="import-credential">${I('upload','i14')}导入示例文件</button></div><textarea id="demo-cookie" class="secret-input" maxlength="200000" rows="4" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="${existing?'已有“已配置”标记，原始内容不会回显。留空不更新。':'仅粘贴虚构文本；可点击“填入虚构示例”。'}"></textarea><input type="file" id="credential-file" accept=".txt,.json" class="hidden" aria-label="选择虚构会话示例文件"></div><div class="credential-storage-note">${I('lock','i14')}保存或关闭后清空输入，仅保留“已配置”标记。</div></div>`;
+}
+function simulateAccountLogin(){
+ const a=accountDraft;if(!a||a.method!=='login')return;
+ if(a.loginMode==='password'){
+  const login=$('#demo-login')?.value.trim(),password=$('#demo-password')?.value;
+  if(!login||!password){$('#account-errors').textContent='请先填写虚构账号和密码，或点击“填入虚构示例”。';$('#account-errors').classList.remove('hidden');$('#account-errors').scrollIntoView({block:'nearest'});return;}
+ }
+ a.loginDemoDone=true;a.credsTouched=true;accountFormDirty=true;
+ scrubCredentialInputs();$('#credential-area').innerHTML=credentialMarkup();$('#account-errors').classList.add('hidden');
+ toast('已模拟建立登录会话，原始输入已清空。不会登录真实平台。');
+}
+function scrubCredentialInputs(){$$('.secret-input').forEach(el=>el.value='');const f=$('#credential-file');if(f)f.value='';}
+function closeAccountEditor(force=false){
+ if(!force&&accountFormDirty){showModal('放弃账号配置修改？','未保存的配置和凭据输入会被清空，不会保存到浏览器。','放弃修改',()=>closeAccountEditor(true));return;}
+ scrubCredentialInputs();$('#account-drawer').close();$('#account-drawer-content').innerHTML='';accountDraft=null;accountFormDirty=false;
+ if(accountReturn?.isConnected)accountReturn.focus();
+}
+function saveAccount(){
+ const a=accountDraft;if(!a)return;const old=a.id?accounts.find(x=>x.id===a.id):null;
+ if(old?!canManageAccount(old):!isAdmin())return toast('无权保存该账号。','lock');
+ const errors=[];
+ if(!a.alias.trim())errors.push('请填写账号别名。');
+ if(accounts.some(x=>x.id!==a.id&&x.service===a.service&&x.alias===a.alias.trim()))errors.push('同一服务下已存在相同账号别名。');
+ if(!users.some(u=>u.id===a.owner))errors.push('请选择有效的账号负责人。');
+ let configured=a.credentialConfigured,newCredential=!!a.loginDemoDone;
+ if(a.method==='cookie'){
+  const raw=$('#demo-cookie')?.value.trim()||'';
+  if(raw){try{if($('#cookie-format').value==='state'){const state=JSON.parse(raw);if(!Array.isArray(state.cookies))throw new Error('format');}else if(!raw.includes('='))throw new Error('format');newCredential=true;}catch(e){errors.push('请使用所选格式的虚构示例：Cookie 需含 name=value；会话 JSON 需含 cookies 数组。');}}
+ }else if(a.loginMode==='password'&&($('#demo-login')?.value||$('#demo-password')?.value))errors.push('账密仅是登录输入，请先点击“模拟账密登录”建立会话，再保存配置。');
+ if(newCredential)configured=true;
+ if(old?.status==='expired'&&!newCredential)errors.push('登录已失效，请重新模拟登录或导入新的虚构会话。');
+ if(!configured)errors.push(a.method==='login'?'请先完成一次模拟登录。':'请先填写虚构会话，或点击“填入虚构示例”。');
+ if(old&&runs.some(r=>r.accountId===a.id&&r.status==='running'))errors.push('该账号正在运行任务，暂不能修改连接。');
+ if(errors.length){$('#account-errors').innerHTML=errors.map(esc).join('<br>');$('#account-errors').classList.remove('hidden');$('#account-errors').scrollIntoView({block:'nearest'});return;}
+ const changed=!old||newCredential||old.method!==a.method;
+ const saved=accountRecord({...a,id:a.id||'acc-'+uid(),alias:a.alias.trim(),credentialConfigured:configured,status:old?.status==='disabled'?'disabled':changed?'unverified':old.status,revision:(old?.revision||0)+(changed?1:0),updated:Date.now(),verifiedAt:changed?0:(old?.verifiedAt||0),lastEvent:changed?'已保存演示连接，等待模拟验证':'已更新账号基本信息'});
+ if(old)accounts[accounts.findIndex(x=>x.id===old.id)]=saved;else accounts.push(saved);
+ users.forEach(cleanBindings);if(editor)cleanBindings(editor);
+ persist();closeAccountEditor(true);repaintAccountContext();
+ toast(!old?'账号已保存，请模拟验证并在权限页分配给成员。':changed?'连接已更新，需重新模拟验证。':'账号信息已更新。');
+}
+function verifyAccount(id){
+ const a=accounts.find(a=>a.id===id);if(!canManageAccount(a))return toast('只有管理员或账号负责人可以验证连接。','lock');
+ if(a.status==='disabled')return toast('账号已停用，请先启用。','info');
+ if(a.status==='expired'){toast('请先更新演示连接，再进行模拟验证。','info');return openAccountEditor(id);}
+ if(!a.credentialConfigured)return openAccountEditor(id);
+ if(verificationTimers.has(id))return;
+ if(runs.some(r=>r.accountId===id&&r.status==='running'))return toast('账号正在执行任务，暂不验证。','info');
+ const revision=a.revision,who=currentUser;
+ const handle=setTimeout(()=>{
+  verificationTimers.delete(id);
+  const latest=accounts.find(x=>x.id===id);
+  if(!latest||latest.revision!==revision||latest.status==='disabled')return repaintAccountContext();
+  latest.status='verified';latest.verifiedAt=Date.now();latest.updated=Date.now();latest.lastEvent='模拟验证通过：演示连接可用';
+  persist();repaintAccountContext();if(currentUser===who)toast('模拟验证通过。未连接真实平台，未校验真实账号。');
+ },850);
+ verificationTimers.set(id,handle);repaintAccountContext();
+}
+function toggleAccount(id){
+ const a=accounts.find(a=>a.id===id);if(!canManageAccount(a))return;
+ const enable=a.status==='disabled';
+ showModal(enable?'启用此平台账号？':'停用此平台账号？',enable?
+ `启用 <strong>${esc(a.alias)}</strong> 后状态回到“未验证”，需重新模拟验证才能采集。原有成员授权保留。`:
+ `停用 <strong>${esc(a.alias)}</strong> 后禁止新采集，使用它的模拟任务会停止。账号和历史结果不会删除，已有结果仍按当前授权访问。`,
+ enable?'启用账号':'确认停用',()=>{
+  if(!canManageAccount(a))return;
+  if(verificationTimers.has(id)){clearTimeout(verificationTimers.get(id));verificationTimers.delete(id);}
+  a.status=enable?'unverified':'disabled';a.revision++;a.updated=Date.now();a.lastEvent=enable?'账号已启用，等待模拟验证':'负责人已停用账号';
+  if(!enable)runs.filter(r=>r.accountId===id&&r.status==='running').forEach(r=>{r.status='stopped';r.reason='平台账号已停用，任务停止，已生成的结果保留。';clearInterval(timer)});
+  persist();repaintAccountContext();toast(enable?'已启用，请重新模拟验证。':'账号已停用。');
+ });
+}
+
+
+/* ---------- Per-tool account selection; no business-object permission layer. ---------- */
+function bindingSummaryMarkup(tool,u){
+ const selected=(u.bindings?.[tool]||[]).map(id=>accounts.find(a=>a.id===id)).filter(Boolean);
+ return `<div class="tool-binding-line"><button class="text-btn ${selected.length?'':'binding-empty'}" data-bind-tool="${tool}" ${u.grants[tool]?'':'disabled'} title="${esc(selected.map(a=>a.alias).join('、'))}">${I(selected.length?'link':'alert','i14')}${selected.length?selected.length+' 个账号':'选择账号'}${I('chevron','i14')}</button></div>`;
+}
+function openBindingEditor(tool){
+ if(!isAdmin()||!editor||!tools[tool]||!editor.grants[tool])return;
+ bindingDraft={tool,accounts:clone(editor.bindings?.[tool]||[])};$('#modal').classList.add('wide-modal');
+ showModal('选择可用账号 · '+tools[tool].title,bindingModalMarkup(),'确认选择',()=>{
+  if(!isAdmin()||!editor||!bindingDraft)return false;
+  editor.bindings[bindingDraft.tool]=clone(bindingDraft.accounts);cleanBindings(editor);renderPermissions();toast('账号选择已更新，请保存权限。');
+ });
+}
+function bindingModalMarkup(){
+ const tool=bindingDraft.tool,list=accounts.filter(a=>a.service===serviceFor(tool));
+ return `<div class="binding-intro"><strong>${esc(editor.name)}</strong><span> / ${tools[tool].source} / ${tools[tool].title}</span><p>只选择此成员可以使用的平台账号，无需再配置分项操作或业务对象。</p></div>
+ ${list.map(a=>`<div class="binding-account"><div class="between"><label class="binding-account-title"><input type="checkbox" data-bind-account="${esc(a.id)}" ${bindingDraft.accounts.includes(a.id)?'checked':''}>${esc(a.alias)}</label>${connectionPill(a)}</div><small class="muted binding-account-help">${a.status==='verified'?'连接已验证，可用于模拟采集。':a.status==='disabled'?'账号已停用：可保留已有结果访问，但不能新建采集。':'负责人配置并验证连接后，才可用于采集。'}</small></div>`).join('')||'<div class="notice amber">此服务尚无账号，请先在“平台账号”新增。</div>'}
+ <div class="notice" style="margin-top:14px">${I('shield')}<span>账号选择将在保存权限后生效。取消账号选择，会同时关闭该成员对该账号已有结果的访问。</span></div>`;
+}
+function updateBindingDialog(){if(!bindingDraft)return;$$('[data-bind-account]').forEach(el=>el.checked=bindingDraft.accounts.includes(el.dataset.bindAccount));}
+async function importCredentialFile(file){
+ if(!file||!accountDraft)return;
+ if(!/\.(txt|json)$/i.test(file.name)||file.size>200000)return toast('仅支持不超过 200 KB 的 TXT / JSON 虚构示例。','alert');
+ const draft=accountDraft;
+ try{const text=await file.text();if(accountDraft!==draft||accountDraft.method!=='cookie')return;
+ $('#cookie-format').value=/\.json$/i.test(file.name)?'state':'cookie';
+ $('#demo-cookie').value=text;accountDraft.credsTouched=true;accountFormDirty=true;
+ $('#account-errors')?.classList.add('hidden');
+ }catch(e){toast('未能读取示例文件。','alert')}
+}
+
+
+/* Delegated controls for account, team and history filters. */
+Object.assign(clickActions,{
+ 'add-account':()=>openAccountEditor(),'close-account':()=>closeAccountEditor(),'save-account':saveAccount,
+ 'simulate-account-login':simulateAccountLogin,'reset-history':resetHistoryFilters,
+ 'fill-credential-demo':()=>{
+  if(!accountDraft)return;
+  if(accountDraft.method==='cookie')$('#demo-cookie').value=$('#cookie-format').value==='state'?JSON.stringify({cookies:[{name:'demo_session',value:'FICTIONAL_VALUE_ONLY',domain:'.example.invalid',path:'/'}],origins:[]},null,2):'demo_session=FICTIONAL_VALUE_ONLY; demo_region=example';
+  else if(accountDraft.loginMode==='password'){$('#demo-login').value='demo-user';$('#demo-password').value='FICTIONAL_PASSWORD_ONLY';accountDraft.loginDemoDone=false;}
+  accountDraft.credsTouched=true;accountFormDirty=true;$('#account-errors')?.classList.add('hidden');
+ },
+ 'import-credential':()=>$('#credential-file')?.click()
+});
+document.addEventListener('click',ev=>{
+ const el=ev.target.closest('button');if(!el||el.disabled)return;
+ if(el.dataset.accountPlatform){accountPlatform=el.dataset.accountPlatform;renderAccounts();}
+ if(el.dataset.editAccount)openAccountEditor(el.dataset.editAccount);
+ if(el.dataset.verifyAccount)verifyAccount(el.dataset.verifyAccount);
+ if(el.dataset.toggleAccount)toggleAccount(el.dataset.toggleAccount);
+ if(el.dataset.bindTool){openBindingEditor(el.dataset.bindTool);updateBindingDialog();}
+ if(el.dataset.connectionMethod&&accountDraft){
+  if(accountDraft.method===el.dataset.connectionMethod)return;
+  scrubCredentialInputs();accountDraft.method=el.dataset.connectionMethod;accountDraft.credentialConfigured=false;accountDraft.loginDemoDone=false;accountDraft.credsTouched=true;accountFormDirty=true;
+  $$('.method-option').forEach(b=>{b.classList.toggle('active',b===el);b.setAttribute('aria-pressed',String(b===el));});$('#credential-area').innerHTML=credentialMarkup();$('#account-errors')?.classList.add('hidden');
+ }
+});
+document.addEventListener('input',ev=>{
+ const el=ev.target;
+ if(el.id==='account-search'){accountQuery=el.value;const pos=el.selectionStart;renderAccounts();$('#account-search').focus();try{$('#account-search').setSelectionRange(pos,pos);}catch(e){}return;}
+ if(!accountDraft)return;
+ if(el.dataset.accountField){accountDraft[el.dataset.accountField]=el.value;accountFormDirty=true;}
+ if(el.classList.contains('secret-input')){accountDraft.credsTouched=true;accountDraft.loginDemoDone=false;accountFormDirty=true;}
+ $('#account-errors')?.classList.add('hidden');
+});
+document.addEventListener('change',ev=>{
+ const el=ev.target;
+ if(el.id==='member-team-filter'){changeMemberTeam(el.value);return;}
+ if(el.id==='history-platform'){historyFilters.platform=el.value;if(historyFilters.tool!=='all'&&el.value!=='all'&&tools[historyFilters.tool].platform!==el.value)historyFilters.tool='all';renderHistory();return;}
+ if(el.id==='history-tool'){historyFilters.tool=el.value;renderHistory();return;}
+ if(el.id==='history-period'){historyFilters.period=el.value;renderHistory();return;}
+ if(el.id==='history-start'||el.id==='history-end'){historyFilters[el.id==='history-start'?'start':'end']=el.value;renderHistory();return;}
+ if(el.id==='account-status-filter'){accountStatusFilter=el.value;renderAccounts();return;}
+ if(el.id==='run-account'){configs[currentTool].accountId=el.value;configErrors=[];renderConfig();renderResult();return;}
+ if(el.dataset.accountField&&accountDraft){accountDraft[el.dataset.accountField]=el.value;accountFormDirty=true;}
+ if((el.id==='account-platform'||el.id==='account-service')&&accountDraft&&!accountDraft.id){
+  scrubCredentialInputs();accountDraft.service=el.id==='account-platform'?Object.keys(services).find(s=>services[s].platform===el.value):el.value;
+  accountDraft.credentialConfigured=false;accountDraft.loginDemoDone=false;accountDraft.credsTouched=true;accountFormDirty=true;renderAccountEditor();return;
+ }
+ if(el.name==='login-route'&&accountDraft){scrubCredentialInputs();accountDraft.loginMode=el.value;accountDraft.loginDemoDone=false;accountDraft.credsTouched=false;accountFormDirty=true;$('#credential-area').innerHTML=credentialMarkup();$('#account-errors')?.classList.add('hidden');return;}
+ if(el.id==='credential-file'){const file=el.files[0];el.value='';importCredentialFile(file);return;}
+ if(el.id==='cookie-format'){if($('#demo-cookie'))$('#demo-cookie').value='';accountFormDirty=true;}
+ if(el.dataset.bindAccount&&bindingDraft){const set=new Set(bindingDraft.accounts);if(el.checked)set.add(el.dataset.bindAccount);else set.delete(el.dataset.bindAccount);bindingDraft.accounts=[...set];updateBindingDialog();}
+});
+$('#account-drawer').addEventListener('cancel',ev=>{ev.preventDefault();closeAccountEditor();});
+$('#account-drawer').addEventListener('click',ev=>{
+ if(ev.target!==$('#account-drawer'))return;const rect=ev.target.getBoundingClientRect();
+ if(ev.clientX<rect.left||ev.clientX>rect.right||ev.clientY<rect.top||ev.clientY>rect.bottom)closeAccountEditor();
+});
+
+render();
+</script>
+</body></html>

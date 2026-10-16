@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>登录 · 智采 cloud</title><link rel="stylesheet" href="/static/auth.css"></head>
+<body><main class="auth-shell"><div class="brand"><span class="mark">智</span><div><strong>智采 <small>cloud</small></strong><p>数据获取工作台</p></div></div>
+<section class="auth-card"><div class="tabs"><button type="button" class="active" data-tab="login">登录</button><button type="button" data-tab="register">注册</button></div>
+<div id="auth-message" role="alert" aria-live="polite"></div>
+<form id="login-form"><h1>欢迎回来</h1><p class="hint">使用个人邮箱登录工作台。</p><label for="login-email">邮箱</label><input id="login-email" type="email" autocomplete="username" required>
+<label for="login-password">密码</label><input id="login-password" type="password" autocomplete="current-password" required>
+<button class="primary" type="submit">登录</button></form>
+<form id="register-form" hidden><h1>申请使用</h1><p class="hint">注册后由管理员确认团队和工具权限。</p>
+<label for="register-email">邮箱</label><input id="register-email" type="email" autocomplete="username" required>
+<label for="register-password">密码</label><input id="register-password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required><small>至少 12 位；不要使用平台账号密码。</small>
+<label for="register-confirm">确认密码</label><input id="register-confirm" type="password" autocomplete="new-password" required>
+<div id="team-field"><label for="register-team">选择团队</label><select id="register-team" required><option value="">正在读取团队…</option></select></div>
+<p id="bootstrap-note" class="hint" hidden>首次初始化：请使用预设管理员邮箱注册。管理员账号建立后，可创建团队供其他成员选择。</p>
+<button class="primary" type="submit">提交注册申请</button></form></section>
+</main><script src="/static/auth.js"></script></body></html>

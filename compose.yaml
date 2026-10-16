@@ -1,0 +1,52 @@
+services:
+  database:
+    image: public.ecr.aws/docker/library/postgres:17.6@sha256:00bc86618629af00d2937fdc5a5d63db3ff8450acf52f0636ec813c7f4902929
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: zhicai
+      POSTGRES_USER: zhicai
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ${ZHICAI_DB_DIR:?Set the PostgreSQL data directory}:/var/lib/postgresql/data
+    secrets:
+      - db_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zhicai -d zhicai"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  workbench:
+    depends_on:
+      database:
+        condition: service_healthy
+    build:
+      context: .
+      args:
+        DEBIAN_MIRROR: ${ZHICAI_DEBIAN_MIRROR:-http://deb.debian.org/debian}
+        DEBIAN_SECURITY_MIRROR: ${ZHICAI_DEBIAN_SECURITY_MIRROR:-http://deb.debian.org/debian-security}
+        PIP_INDEX_URL: ${ZHICAI_PIP_INDEX_URL:-https://pypi.org/simple}
+    image: zhicai-workbench:local
+    init: true
+    network_mode: host
+    restart: unless-stopped
+    shm_size: 1gb
+    environment:
+      ZHICAI_DEPLOYMENT: server
+      ZHICAI_REQUIREMENTS_DB: /opt/zhicai/app/data/requirements.sqlite3
+      ZHICAI_CREDENTIAL_KEYS_FILE: /run/secrets/credential_keys
+      ZHICAI_DB_PASSWORD_FILE: /run/secrets/db_password
+      ZHICAI_BOOTSTRAP_EMAIL: admin@perform.net
+    volumes:
+      - ${ZHICAI_DATA_DIR:?Set the persistent data directory}:/opt/zhicai/app/data
+    secrets:
+      - credential_keys
+      - db_password
+
+secrets:
+  credential_keys:
+    file: ${ZHICAI_CREDENTIAL_KEYS_PATH:?Set the credential key file path}
+  db_password:
+    file: ${ZHICAI_DB_PASSWORD_PATH:?Set the PostgreSQL password file path}
+
