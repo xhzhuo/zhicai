@@ -13,10 +13,13 @@ import secrets
 import shutil
 import uuid
 import time
+import tempfile
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
+import urllib.request
+import urllib.error
 from zipfile import ZipFile
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
@@ -36,6 +39,7 @@ from .industry_presets import router as industry_presets_router
 from . import auth
 from .task_control import TaskControl
 from . import platform_collectors
+from . import adgroups_api
 
 
 ROOT = Path(__file__).resolve().parent
@@ -59,6 +63,15 @@ TOOLS = {
     "bubble": {"name": "行业气泡图数据", "service": "lingxi", "format": "xlsx"},
     "notes": {"name": "笔记封面与内容", "service": "xhs_notes", "format": "xlsx"},
 }
+# Temporary availability switch. Keep tool definitions, grants, assets and data.
+DISABLED_TOOLS = {"plaza"}
+
+
+def require_tool_available(tool: str) -> None:
+    if tool in DISABLED_TOOLS:
+        raise HTTPException(503, "该工具尚未接入，暂不可用")
+
+
 Y_LABEL = {
     "readNum": "阅读量",
     "readYOYIncreaseRate": "阅读同比增长率",
@@ -141,12 +154,23 @@ class RunInput(BaseModel):
     accountId: str = ""
 
 
+class AdgroupInspectInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    accountId: str = ""
+    start: str = Field(default="", max_length=10)
+    end: str = Field(default="", max_length=10)
+
+
 class AccountInput(BaseModel):
-    service: str
+    platform: str = ""
+    serviceName: str = ""
+    service: str = ""
     alias: str
+    pageLink: str = ""
 
 
 class AccountUpdate(BaseModel):
+    pageLink: str | None = None
     alias: str | None = None
     disabled: bool | None = None
     teamId: str | None = None
@@ -249,7 +273,7 @@ def validate_params(tool: str, raw: dict[str, Any]) -> dict[str, Any]:
     if tool not in TOOLS:
         raise ValueError("未知工具")
     if tool == "adgroups":
-        return {"pageUrl": platform_collectors.platform_url(raw.get("pageUrl"))}
+        return adgroups_api.validate_dates(raw)
     if tool == "plaza":
         raise ValueError("合作广场工具请通过筛选文件上传提交")
     if tool == "notes":
@@ -277,7 +301,7 @@ def validate_params(tool: str, raw: dict[str, Any]) -> dict[str, Any]:
         return {"items": cleaned_items, "mode": mode, "limit": limit}
     if tool in ("recommend", "combined"):
         roots = parse_lines(raw.get("roots"), "词根")
-        result: dict[str, Any] = {"roots": roots, "onlyContainRoot": bool(raw.get("onlyContainRoot", tool == "recommend"))}
+        result: dict[str, Any] = {"roots": roots, "onlyContainRoot": True}
         if tool == "combined":
             start, end = date.fromisoformat(str(raw.get("start"))), date.fromisoformat(str(raw.get("end")))
             if start > end:
@@ -397,7 +421,31 @@ async def ensure_page(service: str, show_login: bool = False, headless: bool | N
     return page
 
 
-async def platform_post(service: str, path: str, body: dict[str, Any]) -> Any:
+async def platform_post(service: str, path: str, body: dict[str, Any], *, direct: bool = False) -> Any:
+    if service == "jug" and (auth.server_mode() or direct):
+        account = account_get(active_account.get() or service)
+        context = jug_page_link(account.get("pageLink", ""))
+        content = CREDENTIALS.load(account["id"])
+        if not content:
+            raise HTTPException(422, "请先配置 Cookie")
+        cookies, _ = parse_cookie_import(content, service)
+        def request_data():
+            headers = {"Cookie": "; ".join(c["name"] + "=" + c["value"] for c in cookies),
+                       "Content-Type": "application/json", "Origin": "https://ad.xiaohongshu.com",
+                       "Referer": context["pageLink"], "V-Seller-Id": context["vSellerId"],
+                       "User-Agent": "Mozilla/5.0"}
+            if path == adgroups_api.PATH:
+                headers["Referer"] = "https://ad.xiaohongshu.com/aurora/ad/manage/campaigngroup?vSellerId=" + context["vSellerId"]
+            req = urllib.request.Request(SERVICES["jug"]["url"].rstrip("/") + path,
+                data=json.dumps(body).encode("utf-8"), headers=headers)
+            try:
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    return json.loads(response.read())
+            except urllib.error.HTTPError as exc:
+                if exc.code == 401:
+                    raise AuthenticationError("平台返回 HTTP 401，当前登录未获授权") from exc
+                raise RuntimeError(f"聚光接口请求失败：HTTP {exc.code}") from exc
+        return await asyncio.to_thread(request_data)
     page = await ensure_page(service)
     expected = SERVICES[service]["url"].rstrip("/")
     if not page.url.startswith(expected):
@@ -425,7 +473,7 @@ async def platform_post(service: str, path: str, body: dict[str, Any]) -> Any:
 
 async def recommend(root: str, only_contain: bool) -> list[dict[str, Any]]:
     body = {"requestType": "search", "priceUplift": 0, "keywordSearchList": [root],
-            "trackId": str(uuid.uuid4()), "filterPurchasedWord": 0}
+            "trackId": str(uuid.uuid4()), "filterPurchasedWord": 0, "platform": 11}
     if only_contain:
         body["keywordContainsFilter"] = root
     data = await platform_post("jug", "/api/leona/rtb/tool/keyword/common/recommend", body)
@@ -476,6 +524,11 @@ async def execute(run_id: str) -> None:
     check_disk_space()
     run = read_run(run_id)
     tool, params = run["tool"], run["params"]
+    if tool in DISABLED_TOOLS:
+        run["status"]="failed"
+        run.setdefault("failures",[]).append({"item":"任务","error":"该工具尚未接入，暂不可用"})
+        run["ended"]=now();save_run(run)
+        return
     if tool in {"adgroups", "plaza"}:
         await execute_platform_collection(run)
         return
@@ -552,6 +605,11 @@ async def execute_platform_collection(run: dict[str, Any]) -> None:
             run["status"] = "running"
             run["stage"] = "准备聚光连接"
             save_run(run)
+            if run['tool'] == 'adgroups':
+                async def post(path, body):
+                    return await platform_post('jug', path, body, direct=True)
+                await adgroups_api.collect(run, post, folder / '结果.xlsx', save_run, MAX_OUTPUT_BYTES)
+                return
             page = await ensure_page("jug", headless=True, navigate=False)
             cookies = await page.context.cookies()
             # Release the old browser before creating the one collection browser.
@@ -570,11 +628,17 @@ async def execute_platform_collection(run: dict[str, Any]) -> None:
 
 
 def enqueue_platform_collection(user, account_id, tool, params, content=None):
+    require_tool_available(tool)
     account = account_get(account_id or "jug")
     if auth.server_mode() and account.get("teamId") != user["team_id"]:
         raise HTTPException(403, "只能使用本团队的平台账号")
     if account["service"] != "jug" or account["disabled"]:
         raise HTTPException(422, "请选择启用的聚光账号")
+    if tool == 'adgroups':
+        jug_page_link(account.get('pageLink', ''))
+    if tool == "plaza" and (auth.server_mode() or account.get("pageLink")):
+        context = jug_page_link(account.get("pageLink", ""))
+        params = {**params, "pageUrl":"https://ad.xiaohongshu.com/microapp/creativity/ugc?vSellerId=" + context["vSellerId"]}
     check_disk_space()
     task_control.check(user["id"])
     run_id = uuid.uuid4().hex
@@ -595,9 +659,49 @@ def enqueue_platform_collection(user, account_id, tool, params, content=None):
     return run_id
 
 
+async def read_adgroup_page_summary(account_id: str, params: dict[str, Any]) -> dict[str, Any]:
+    token = active_account.set(account_id)
+    try:
+        async def post(path, body):
+            return await platform_post('jug', path, body, direct=True)
+        data = await adgroups_api.fetch_page(post, params, 1)
+        return {'websiteTotal': data['totalCount'], 'currentPageCount': len(data['dataList'])}
+    finally:
+        active_account.reset(token)
+
+
+@app.post("/api/adgroups/inspect")
+async def inspect_adgroup_page(payload: AdgroupInspectInput, request: Request) -> dict[str, Any]:
+    assert_local(request)
+    user = auth.require_tool(request, "adgroups")
+    try:
+        params = adgroups_api.validate_dates({'start':payload.start, 'end':payload.end})
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    account = account_get(payload.accountId or "jug")
+    if auth.server_mode() and account.get("teamId") != user["team_id"]:
+        raise HTTPException(403, "只能使用本团队的平台账号")
+    if account["service"] != "jug" or account["disabled"]:
+        raise HTTPException(422, "请选择启用的聚光账号")
+    check_disk_space()
+    # Read-only UI check: no persisted run, no submission quota, same browser slot.
+    if task_control.tasks or task_control.run_lock.locked() or locks["jug"].locked():
+        raise HTTPException(409, "已有任务正在运行，请稍后重新查询广告组数量")
+    async with task_control.run_lock, locks["jug"]:
+        try:
+            async with asyncio.timeout(60):
+                result = await read_adgroup_page_summary(account["id"], params)
+        except TimeoutError as exc:
+            raise HTTPException(504, "广告组数量查询超时，请稍后重试") from exc
+        except Exception as exc:
+            raise HTTPException(422, str(exc)) from exc
+    return {"websiteTotal":result["websiteTotal"], "currentPageCount":result["currentPageCount"]}
+
+
 @app.get("/api/plaza/template")
 def plaza_template(request: Request):
     auth.require_tool(request, "plaza")
+    require_tool_available("plaza")
     return FileResponse(platform_collectors.ASSETS / "plaza-template.xlsx",
                         filename="zhicai_plaza_template.xlsx")
 
@@ -617,6 +721,7 @@ async def read_plaza_upload(file):
 async def inspect_plaza(request: Request, file: UploadFile = File(...)):
     assert_local(request)
     auth.require_tool(request, "plaza")
+    require_tool_available("plaza")
     _, tasks = await read_plaza_upload(file)
     return {"taskCount":len(tasks), "tasks":tasks}
 
@@ -626,6 +731,7 @@ async def create_plaza_run(request: Request, file: UploadFile = File(...),
                            account_id: str = Form(...), collect_comments: bool = Form(False)):
     assert_local(request)
     user = auth.require_tool(request, "plaza")
+    require_tool_available("plaza")
     content, tasks = await read_plaza_upload(file)
     params = {"tasks":tasks, "collectComments":collect_comments,
               "pageUrl":"https://ad.xiaohongshu.com/microapp/creativity/ugc"}
@@ -936,7 +1042,7 @@ def meta(request: Request) -> dict[str, Any]:
                 images[tool] = f"/static/tool-locations/{tool}.{extension}?v={path.stat().st_mtime_ns}"
                 break
     user = auth.user_from_request(request)
-    return {"tools": TOOLS, "services": SERVICES,
+    return {"tools": TOOLS, "services": SERVICES, "disabledTools":sorted(DISABLED_TOOLS),
             "localUser": user["email"] if auth.server_mode() else getpass.getuser(),
             "serverMode": auth.server_mode(),
             "toolLocationImages": images,
@@ -949,16 +1055,42 @@ def list_accounts(request: Request) -> list[dict[str, Any]]:
     return [a for a in accounts_read() if auth.account_visible(user, a)]
 
 
+def jug_page_link(value: str) -> dict[str, str]:
+    value = value.strip()
+    parsed = urlparse(value)
+    ids = parse_qs(parsed.query).get("vSellerId", [])
+    if (len(value) > 2048 or parsed.scheme != "https" or parsed.hostname != "ad.xiaohongshu.com"
+            or parsed.username or parsed.password or parsed.netloc not in ("ad.xiaohongshu.com", "ad.xiaohongshu.com:443")
+            or len(ids) != 1 or not re.fullmatch(r"[a-zA-Z0-9_-]{8,80}", ids[0])):
+        raise HTTPException(422, "聚光账号必须填写包含 vSellerId 的聚光 HTTPS 页面链接")
+    seller_id = ids[0]
+    return {"pageLink": "https://ad.xiaohongshu.com/aurora/ad/tools/newKeywordTool?vSellerId=" + seller_id,
+            "vSellerId": seller_id}
+
+
 @app.post("/api/accounts")
 def create_account(payload: AccountInput, request: Request) -> dict[str, Any]:
     assert_local(request)
     user = auth.user_from_request(request)
     alias = payload.alias.strip()
-    if payload.service not in SERVICES or not 1 <= len(alias) <= 40:
-        raise HTTPException(422, "请选择服务并填写 1～40 字的账号别名")
-    account = {"id": uuid.uuid4().hex, "service": payload.service, "alias": alias,
+    platform, service_name = payload.platform.strip(), payload.serviceName.strip()
+    if platform or service_name:
+        if platform not in {"xhs","baidu","douyin","tmall"} or not 1 <= len(service_name) <= 80:
+            raise HTTPException(422, "请选择平台并填写服务名称（最多80字）")
+        service = next((key for key,item in SERVICES.items()
+                        if platform == "xhs" and item["name"] == service_name), "custom")
+    elif payload.service in SERVICES:
+        platform, service_name, service = "xhs", SERVICES[payload.service]["name"], payload.service
+    else:
+        raise HTTPException(422, "请选择平台并填写服务名称")
+    if not 1 <= len(alias) <= 40:
+        raise HTTPException(422, "账号别名需要1～40字")
+    account = {"id": uuid.uuid4().hex, "service": service, "platform": platform,
+               "serviceName": service_name, "alias": alias,
                "method": "cookie" if auth.server_mode() else "login", "disabled": False, "status": "unverified", "statusReason": None,
                "cookieConfigured": False, "verifiedAt": None}
+    if service == "jug":
+        account.update(jug_page_link(payload.pageLink))
     if auth.server_mode():
         auth.add_account(account, user)
         return account_get(account["id"])
@@ -972,6 +1104,10 @@ def update_account(account_id: str, payload: AccountUpdate, request: Request) ->
     account = account_get(account_id)
     user = auth.require_account(request, account, edit=True)
     changes = {}
+    if account["service"] == "jug" and (payload.pageLink is not None or payload.alias is not None):
+        changes.update(jug_page_link(payload.pageLink if payload.pageLink is not None else account.get("pageLink", "")))
+        if changes["vSellerId"] != account.get("vSellerId"):
+            changes.update(status="unverified", verifiedAt=None, statusReason=None)
     if payload.alias is not None:
         alias = payload.alias.strip()
         if not 1 <= len(alias) <= 40: raise HTTPException(422, "账号别名需要 1～40 字")
@@ -1009,6 +1145,8 @@ async def login_account(account_id: str, request: Request) -> dict[str, str]:
     account = account_get(account_id)
     auth.require_account(request, account, edit=True)
     if account["disabled"]: raise HTTPException(409, "账号已停用")
+    if account["service"] not in SERVICES:
+        raise HTTPException(409, "该服务尚未接入连接验证或采集")
     token = active_account.set(account_id)
     try:
         await ensure_page(account["service"], show_login=True)
@@ -1061,6 +1199,8 @@ async def import_cookie(account_id: str, payload: CookieImport, request: Request
         account = account_get(account_id)
         auth.require_account(request, account, edit=True)
         if account["disabled"]: raise HTTPException(409, "账号已停用")
+        if account["service"] not in SERVICES:
+            raise HTTPException(409, "该服务尚未接入连接验证或采集")
         try:
             cookies, origins = parse_cookie_import(payload.content, account["service"])
         except (ValueError, TypeError, json.JSONDecodeError) as exc:
@@ -1101,35 +1241,6 @@ async def import_cookie(account_id: str, payload: CookieImport, request: Request
         return {"message": "Cookie 已保存到该账号的后台连接；请验证连接。", "cookieSavedAt": saved_at}
 
 
-@app.post("/api/accounts/{account_id}/cookie/reveal")
-async def reveal_cookie(account_id: str, request: Request, response: Response) -> dict[str, Any]:
-    assert_local(request)
-    account = account_get(account_id)
-    auth.require_account(request, account, edit=True)
-    response.headers["Cache-Control"] = "no-store"
-    response.headers["Pragma"] = "no-cache"
-    try:
-        content = CREDENTIALS.load(account_id)
-    except CredentialStorageError as exc:
-        raise HTTPException(503, f"无法读取 Cookie：{exc}") from exc
-    source = "encrypted_store"
-    if content is None and account.get("cookieConfigured") and os.environ.get("ZHICAI_DEPLOYMENT", "local") == "local":
-        # One-time recovery for cookies imported before exact text was saved.
-        token = active_account.set(account_id)
-        try:
-            await ensure_page(account["service"], headless=True, navigate=False)
-            existing = await contexts[account_id].cookies([SERVICES[account["service"]]["url"]])
-            content = "; ".join(f"{item['name']}={item['value']}" for item in existing if item.get("name"))
-            if content:
-                CREDENTIALS.save(account_id, content)
-                source = "legacy_browser_profile"
-        except Exception as exc:
-            raise HTTPException(503, f"旧 Cookie 未能恢复：{exc}") from exc
-        finally:
-            active_account.reset(token)
-    return {"content": content or "", "available": bool(content), "source": source if content else "missing"}
-
-
 @app.post("/api/accounts/{account_id}/verify")
 async def verify_account(account_id: str, request: Request) -> dict[str, str]:
     if task_control.run_lock.locked():
@@ -1139,7 +1250,11 @@ async def verify_account(account_id: str, request: Request) -> dict[str, str]:
         account = account_get(account_id)
         auth.require_account(request, account, edit=True)
         if account["disabled"]: raise HTTPException(409, "账号已停用")
+        if account["service"] not in SERVICES:
+            raise HTTPException(409, "该服务尚未接入连接验证或采集")
         service = account["service"]
+        if service == "jug":
+            jug_page_link(account.get("pageLink", ""))
         token = active_account.set(account_id)
         try:
             async with locks[service]:
@@ -1245,6 +1360,7 @@ async def create_notes_run(request: Request, file: UploadFile = File(...),
 async def create_run(payload: RunInput, request: Request) -> dict[str, str]:
     assert_local(request)
     user = auth.require_tool(request, payload.tool)
+    require_tool_available(payload.tool)
     try:
         params = validate_params(payload.tool, payload.params)
     except (ValueError, TypeError) as exc:
@@ -1350,6 +1466,17 @@ def download(run_id: str, request: Request) -> Response:
         content, media, ext = ("\ufeff" + stream.getvalue()).encode("utf-8"), "text/csv; charset=utf-8", "csv"
     filename = f"zhicai_{run['tool']}_{run['created'][:10]}_{run_id[:8]}.{ext}"
     return Response(content, media_type=media, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@app.get("/api/runs/{run_id}/diagnostics")
+def download_adgroup_diagnostics(run_id: str, request: Request) -> Response:
+    assert_local(request)
+    run = get_run(run_id, request)
+    if run["tool"] != "adgroups" or not run.get("diagnostics"):
+        raise HTTPException(404, "当前没有分页诊断信息")
+    return Response(json.dumps(run["diagnostics"], ensure_ascii=False, indent=2),
+                    media_type="application/json",
+                    headers={"Content-Disposition":f'attachment; filename="zhicai_adgroups_{run_id[:8]}_diagnostics.json"'})
 
 
 @app.get("/api/runs/{run_id}/assets")

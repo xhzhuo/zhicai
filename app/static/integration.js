@@ -11,7 +11,10 @@ const toolLocationPaths = {
 };
 const realRuns = new Map();
 const realSelected = {};
-let plazaUploadFile = null, plazaTaskCount = 0;
+let plazaUploadFile=null, plazaTaskCount=0, plazaTasks=[], plazaUploadVersion=0, plazaSubmitting=false;
+let plazaUploadState={phase:'idle',name:'',error:''};
+let adgroupPreview={key:'',phase:'idle',data:null,error:''}, adgroupPreviewTimer=null, adgroupPreviewFlight=null;
+let adgroupSubmitting=false;
 let notesUploadFile = null;
 let notesSheets = [];
 let notesSheetName = '';
@@ -87,7 +90,7 @@ tools.notes.output='笔记数据 Excel + 封面素材包';
 tools.notes.sample='';
 
 for(const [id,definition] of Object.entries({
-  adgroups:{title:'聚光广告组信息导出',desc:'采集标准投广告组信息，去重数量与页面总数一致后导出。',input:'聚光账号 + 广告组页面',output:'账号、广告组、广告组ID、状态、导出时间'},
+  adgroups:{title:'聚光广告组信息导出',desc:'查询所选账号的广告组，自动获取全部数据并导出 Excel。',input:'聚光账号 + 可选统计日期',output:'账号、广告组、广告组ID、广告组状态、导出时间'},
   plaza:{title:'合作广场笔记采集',desc:'按 Excel 筛选条件采集笔记，可选补采评论、情感分析与关键词词云。',input:'聚光账号 + 筛选条件 Excel',output:'笔记数据、采集记录及可选评论结果'}
 })){
   tools[id]={...definition,platform:'xhs',source:'聚光',icon:'table',kind:'platform',unit:'任务',sample:'',columns:[]};
@@ -126,7 +129,7 @@ renderCatalog = function () {
     <div class="between catalog-meta"><span>共 ${list.length} 个工具 <span class="muted">· ${platform==='all'?'所有平台':platforms[platform].name}</span></span><span>已接入 ${Object.keys(realTools).length} 个采集流程</span></div>
     <section class="catalog-grid">${list.map(id => { const t=tools[id],ready=!!realTools[id],allowed=ready&&(!window.ZHICAI_SERVER_MODE||can(id)); return `<article class="tool-card"><div class="between">${platformBadge(t.platform)}<span class="pill">${platforms[t.platform].name} · ${t.source}</span></div><h2>${t.title}</h2><p class="desc">${t.desc}</p><div class="tool-spec"><span>输入</span><span>${t.input}</span><span>输出</span><span title="${t.output}">${t.output}</span></div><div class="tool-card-foot"><span class="pill ${allowed?'green':'amber'}">${allowed?'实际工具':ready?'未授权':'尚未接入'}</span><button class="text-btn" data-open-tool="${id}" ${allowed?'':'disabled'}>${allowed?'配置采集':ready?'无访问权限':'暂无实际工具'}${I('chevron','i14')}</button></div></article>`; }).join('')}</section>
     ${!list.length?emptyView('没有匹配的工具','试试切换平台或清空搜索条件。','search'):''}
-    <div class="catalog-note">${I('info','i16')}<span>已接入关键词、搜索量、行业气泡图、笔记封面与内容、广告组导出和合作广场笔记采集。</span></div>${realFooter()}`;
+    <div class="catalog-note">${I('info','i16')}<span>标记“尚未接入”的工具暂不可运行。</span></div>${realFooter()}`;
 };
 
 function accountListFor(id) { return accounts.filter(a => a.service === (id==='industry'?'lingxi':'jug')&&(!window.ZHICAI_SERVER_MODE||a.teamId===window.ZHICAI_ME?.teamId)); }
@@ -171,15 +174,79 @@ function realAccountBox(id) {
 function realTaxRows() {
   return `<div class="tax-head"><span>行业名称</span><span>行业 code</span><span></span></div><div id="real-tax-list">${bubbleDraft.taxonomies.map((row,i)=>`<div class="real-tax-row" data-index="${i}" style="display:grid;grid-template-columns:1fr 1.2fr 28px;gap:5px;margin-bottom:7px"><input data-tax-name="${i}" value="${esc(row.name)}" placeholder="如：母婴奶粉" aria-label="行业名称"><input data-tax-code="${i}" value="${esc(row.code)}" placeholder="taxonomyCodes" aria-label="行业 code"><button class="btn sm" data-real-remove-tax="${i}" aria-label="删除行业">×</button></div>`).join('')}</div><button class="text-btn" data-real-add-tax>${I('plus','i14')}添加行业</button>`;
 }
+function plazaConfigBusy(){return plazaSubmitting||['queued','running'].includes(realRuns.get(realSelected.plaza)?.status);}
+function plazaDeliveryText(){return configs.plaza.collectComments?'笔记数据、采集记录、评论明细、评论情感分类、关键词词云':'笔记数据、采集记录';}
+function plazaFileDetails(){
+  const state=plazaUploadState;
+  const message=state.phase==='checking'?'正在检查筛选条件…':state.phase==='ready'?`检查通过 · ${plazaTaskCount} 个启用任务`:state.phase==='error'?state.error:'使用模板中的“筛选条件”工作表，文件不超过 20 MB。';
+  return `<strong id="plaza-file-name">${esc(state.name||'尚未选择文件')}</strong><div id="plaza-file-state" class="field-hint ${state.phase==='error'?'error':''}" role="${state.phase==='error'?'alert':'status'}">${state.phase==='checking'?'<span class="spinner" aria-hidden="true"></span> ':''}${esc(message)}</div>`;
+}
+function plazaTaskPreview(){
+  if(!plazaTasks.length)return '';
+  return `<details class="plaza-task-preview"><summary>查看 ${plazaTasks.length} 个启用任务</summary><ol>${plazaTasks.map(task=>{
+    const period=task.发布时间==='自定义'?`${task.开始日期} 至 ${task.结束日期}`:task.发布时间;
+    const filters=['曝光量','阅读量','互动量','作者粉丝数'].filter(key=>task[key]&&task[key]!=='不限').map(key=>`${key} ${task[key]}`);
+    return `<li><strong>${esc(task.任务名称)}</strong><dl><dt>关键词</dt><dd>${esc(task.关键词)}</dd><dt>筛选方式</dt><dd>${esc(task.搜索类型)} · ${esc(task.笔记类型)} · ${esc(task.排序)}</dd><dt>发布时间</dt><dd>${esc(period)}</dd><dt>采集上限</dt><dd>最多 ${number(task.最多笔记数)} 条</dd>${filters.length?`<dt>数据筛选</dt><dd>${esc(filters.join('；'))}</dd>`:''}</dl></li>`;
+  }).join('')}</ol><p class="field-hint">以上为启用任务及设置的上限，实际数量以平台返回为准。</p></details>`;
+}
+function paintPlazaUpload(){
+  if(page!=='tool'||currentTool!=='plaza')return;
+  if($('#plaza-file-details'))$('#plaza-file-details').innerHTML=plazaFileDetails();
+  const choice=$('.plaza-file-choice');if(choice)choice.textContent=plazaUploadState.name?'更换文件':'选择文件';
+  if($('#plaza-task-preview'))$('#plaza-task-preview').innerHTML=plazaTaskPreview();
+  refreshConfigMeta();
+}
+async function inspectPlazaUpload(file){
+  if(plazaConfigBusy())return;
+  const version=++plazaUploadVersion;
+  plazaUploadFile=null;plazaTaskCount=0;plazaTasks=[];
+  plazaUploadState={phase:file?'checking':'idle',name:file?.name||'',error:''};paintPlazaUpload();
+  if(!file)return;
+  try{
+    if(!/\.xlsx$/i.test(file.name)||file.size>20*1024*1024)throw new Error('请选择不超过 20 MB 的 .xlsx 文件。');
+    const form=new FormData();form.append('file',file,file.name);
+    const result=await realUploadApi('/api/plaza/inspect',form);
+    if(version!==plazaUploadVersion)return;
+    plazaTasks=result.tasks||[];plazaTaskCount=result.taskCount||0;
+    if(!plazaTaskCount||plazaTasks.length!==plazaTaskCount)throw new Error('未读取到完整的启用任务，请检查筛选条件文件。');
+    plazaUploadFile=file;plazaUploadState={phase:'ready',name:file.name,error:''};
+  }catch(error){
+    if(version!==plazaUploadVersion)return;
+    plazaUploadFile=null;plazaTaskCount=0;plazaTasks=[];
+    plazaUploadState={phase:'error',name:file.name,error:error.message};
+  }
+  paintPlazaUpload();
+}
+function refreshPlazaConfigMeta(button,run,account){
+  const busy=plazaConfigBusy(), fileReady=!!plazaUploadFile&&plazaUploadState.phase==='ready'&&plazaTaskCount>0;
+  let reason='';
+  if(!account)reason='请先配置聚光账号';
+  else if(account.status==='disabled')reason='所选账号已停用，请选择其他账号';
+  else if(plazaUploadState.phase==='checking')reason='正在检查筛选条件';
+  else if(!fileReady)reason=plazaUploadState.phase==='error'?'请修正筛选条件文件':'请先上传筛选条件文件';
+  button.disabled=busy||!!reason;button.title=reason;
+  button.innerHTML=busy?`<span class="spinner"></span>${run?.status==='queued'?'等待运行':plazaSubmitting?'正在提交':'正在采集'}`:I('play','i16')+'开始采集';
+  $('#run-summary').textContent=busy?'本次配置已锁定':fileReady?`${plazaTaskCount} 个启用任务 · ${configs.plaza.collectComments?'笔记及评论':'仅笔记'}`:reason;
+  const file=$('#plaza-file');if(file)file.disabled=busy;
+  const choice=$('.plaza-file-choice');if(choice){choice.classList.toggle('is-disabled',busy);choice.setAttribute('aria-disabled',String(busy));}
+  $$('input[name="plaza-content"]').forEach(el=>el.disabled=busy);
+  const selector=$('#run-account');if(selector)selector.disabled=busy||!accountListFor('plaza').length;
+  const reset=$('.config-panel [data-action="reset-config"]');if(reset)reset.disabled=busy;
+  if($('#plaza-delivery'))$('#plaza-delivery').textContent=plazaDeliveryText();
+  if($('#plaza-comments-note'))$('#plaza-comments-note').classList.toggle('hidden',!configs.plaza.collectComments);
+}
+
 renderConfig = function () {
   if (!$('#config-body')) return;
   const id=currentTool, c=configs[id], account=connectionFor(id), busy=realRuns.get(realSelected[id])?.status==='running';
   let html=realAccountBox(id);
   if(id==='adgroups'){
-    html+=realField('adgroups-url','广告组页面链接（可选）',`<input id="adgroups-url" type="url" value="${esc(c.pageUrl||'')}" placeholder="https://ad.xiaohongshu.com/...">`,'留空时尝试从聚光首页进入竞价推广 → 标准投 → 广告组；也可粘贴对应页面链接。数量校验通过后才生成 Excel。');
+    html+=realField('adgroups-start','开始日期（可选）',`<input id="adgroups-start" type="date" value="${esc(c.apiStart||'')}" aria-describedby="adgroups-date-hint">`);
+    html+=realField('adgroups-end','结束日期（可选）',`<input id="adgroups-end" type="date" value="${esc(c.apiEnd||'')}" aria-describedby="adgroups-date-hint">`);
+    html+=`<p id="adgroups-date-hint" class="field-hint">日期留空默认今天；指定日期时请同时填写开始和结束日期。自动获取所选账号的全部广告组。</p><div id="adgroup-link-state" class="adgroup-link-state" role="status" aria-live="polite"></div>`;
   }else if(id==='plaza'){
-    html+=realField('plaza-file','筛选条件文件<span class="required">*</span>',`<a class="text-btn" href="/api/plaza/template">下载筛选条件模板</a><input id="plaza-file" type="file" accept=".xlsx"><div id="plaza-file-state" class="field-hint" role="status">${plazaTaskCount?`已读取 ${plazaTaskCount} 个启用任务`:'请按模板填写并上传 .xlsx 文件（不超过 20 MB）。'}</div>`);
-    html+=`<label class="flex"><input id="plaza-comments" type="checkbox" ${c.collectComments?'checked':''}>采集笔记评论</label><p class="field-hint">勾选后逐篇补采评论，并导出情感分析和关键词词云。单篇最多等待 90 秒，整项任务受服务器 15 分钟上限约束。建议先用少量笔记试跑；失败及未完成原因保留在采集记录中。</p>`;
+    html+=`<section class="plaza-upload"><div class="between plaza-upload-heading"><label for="plaza-file">筛选条件文件<span class="required">*</span></label><a class="text-btn" href="/api/plaza/template">下载模板</a></div><div class="plaza-upload-row"><div id="plaza-file-details">${plazaFileDetails()}</div><label class="btn sm plaza-file-choice" for="plaza-file">${plazaUploadState.name?'更换文件':'选择文件'}</label><input id="plaza-file" class="plaza-file-input" type="file" accept=".xlsx" aria-label="上传筛选条件文件"></div><div id="plaza-task-preview">${plazaTaskPreview()}</div></section>`;
+    html+=`<fieldset class="adgroup-scope plaza-content"><legend>采集内容</legend><div class="adgroup-scope-options"><label><input type="radio" name="plaza-content" value="notes" ${!c.collectComments?'checked':''}>仅采集笔记</label><label><input type="radio" name="plaza-content" value="comments" ${c.collectComments?'checked':''}>笔记及评论</label></div></fieldset><p id="plaza-comments-note" class="field-hint ${c.collectComments?'':'hidden'}">采集评论会增加耗时，建议先用少量笔记试跑。</p><details class="plaza-instructions"><summary>文件与采集说明</summary><p>仅执行文件中“启用”为“是”的任务，最多 100 个。筛选条件和每任务采集上限在模板中设置。</p><p>整项任务最长 15 分钟；评论逐篇采集，单篇最多等待 90 秒。评论情感按内置词典分类，失败及未完成原因写入采集记录。</p></details>`;
   }else if(id==='notes'){
     html+=realField('note-file','上传笔记文件<span class="required">*</span>',`<input id="note-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-describedby="note-file-help"><div id="note-file-help" class="field-hint">仅支持 .xlsx，文件不超过 20 MB；表头必须包含“笔记id”和“笔记链接”。每次最多处理 200 条有效记录。</div><div id="note-file-state" class="field-hint" role="status">${notesUploadFile?`已选择：${esc(notesUploadFile.name)}`:'请选择 Excel 文件。'}</div>`);
     const sheetOptions=notesSheets.map(sheet=>`<option value="${esc(sheet.name)}" ${sheet.name===notesSheetName?'selected':''} ${sheet.hasRequiredColumns?'':'disabled'}>${esc(sheet.name)}${sheet.hasRequiredColumns?'':'（缺少必需字段）'}</option>`);
@@ -191,9 +258,8 @@ renderConfig = function () {
     html+=realField('input-list','词根列表<span class="required">*</span>',`<textarea id="input-list" data-config="input" maxlength="30000" spellcheck="false" placeholder="每行一个词根，可从 Excel 复制" ${busy?'disabled':''}>${esc(c.input)}</textarea><div id="input-meta" class="field-hint"></div>`);
     html+=`<div class="input-actions"><button class="text-btn" data-action="import">${I('upload','i14')}导入 CSV / TXT</button><button class="text-btn" data-action="template">下载单列模板</button></div><input id="file-input" type="file" accept=".csv,.txt,text/csv,text/plain" class="hidden" aria-label="选择词根文件">`;
     if(id==='trend') html+=realField('date-start','查询日期<span class="required">*</span>',`<div class="dates"><input type="date" id="date-start" data-config="start" value="${esc(c.start)}" aria-label="开始日期"><span>至</span><input type="date" id="date-end" data-config="end" value="${esc(c.end)}" aria-label="结束日期"></div><div class="presets">${[7,14,30].map(n=>`<button data-days="${n}" class="${c.preset===n?'active':''}">近 ${n} 天</button>`).join('')}</div>`,'包含起止日期；先扩词，再查询每个推荐词的每日搜索量。');
-    html+=`<div class="field"><label class="flex" style="font-size:11px;color:#53637c"><input id="only-contain" type="checkbox" ${c.onlyContainRoot?'checked':''}>推荐词必须包含对应词根</label></div>`;
   } else {
-    html+=realField('real-tax-list','行业名称与行业code<span class="required">*</span>',realTaxRows());
+    html+=realField('real-tax-list','行业<span class="required">*</span>',realTaxRows());
     html+=realField('date-start','查询日期<span class="required">*</span>',`<div class="dates"><input type="${bubbleDraft.timePartition===2?'month':'date'}" id="date-start" data-config="start" value="${esc(c.start.slice(0,bubbleDraft.timePartition===2?7:10))}" aria-label="开始日期"><span>至</span><input type="${bubbleDraft.timePartition===2?'month':'date'}" id="date-end" data-config="end" value="${esc(c.end.slice(0,bubbleDraft.timePartition===2?7:10))}" aria-label="结束日期"></div>`);
     html+=realField('partition','时间粒度',realSelect('partition',[[1,'按日'],[4,'按周'],[2,'按月']],bubbleDraft.timePartition));
     html+=realField('dimension','分析主体',realSelect('dimension',[['1','品牌'],['2','SPU'],['3','系列']],bubbleDraft.dimensionType));
@@ -202,33 +268,48 @@ renderConfig = function () {
     html+=realField('size-axis','气泡大小',realSelect('size-axis',[['noteNum','平均有曝光笔记数'],['noteIncreaseNum','新增笔记数']],bubbleDraft.sizeIndex));
     html+=`<details class="run-details"><summary>高级筛选（可留空）</summary>${[['regionCodes','地域 code，空白为全国'],['brandIdList','品牌 ID'],['spuIdList','SPU ID'],['seriesIdList','系列 ID']].map(([key,label])=>realField(key,label,`<input id="${key}" value="${esc(bubbleDraft[key])}" placeholder="多个值用逗号分隔">`)).join('')}</details>`;
   }
-  html+=`<div class="field"><div class="field-label"><span>交付内容</span><span class="pill">${id==='notes'?'Excel + ZIP':['industry','adgroups','plaza'].includes(id)?'Excel':'CSV'}</span></div><div class="field-hint" style="border:1px solid var(--line);border-radius:6px;padding:9px 10px;background:#fafcff">${esc(tools[id].output)}<br>失败项保留原因，不填充模拟值。</div></div><div id="config-errors" class="form-errors hidden" role="alert"></div>`;
+  html+=`<div class="field"><div class="field-label"><span>交付内容</span><span class="pill">${id==='notes'?'Excel + ZIP':['industry','adgroups','plaza'].includes(id)?'Excel':'CSV'}</span></div><div class="field-hint" style="border:1px solid var(--line);border-radius:6px;padding:9px 10px;background:#fafcff">${id==='plaza'?`<span id="plaza-delivery">${esc(plazaDeliveryText())}</span>`:esc(tools[id].output)}<br>失败项保留原因，不填充模拟值。</div></div><div id="config-errors" class="form-errors hidden" role="alert"></div>`;
   $('#config-body').innerHTML=html;
   refreshConfigMeta();
+  if(id==='adgroups')scheduleAdgroupPreview();
 };
 
 refreshConfigMeta = function () {
   const button=$('#run-button'); if(!button)return;
   const id=currentTool, run=realRuns.get(realSelected[id]), account=id==='notes'?true:connectionFor(id);
+  if(id==='plaza'){refreshPlazaConfigMeta(button,run,account);return;}
   const count=id==='notes'?(notesUploadFile&&notesSheetName?1:0):id==='industry'?bubbleDraft.taxonomies.filter(x=>x.name&&x.code).length:inputItems(configs[id],id).valid.length;
   if($('#input-meta')) $('#input-meta').textContent=`已识别 ${count} 个词根`;
   $('#run-summary').textContent=id==='notes'?(count?'已读取 1 个 Excel 文件':'等待上传 .xlsx 文件'):id==='industry'?`${count} 个行业 · ${bubbleDraft.yindexList.length} 个 Y 轴指标 · Excel 文件`:`${count} 个词根 · CSV 文件`;
-  const blocked=!account||account.status==='disabled'||(id==='notes'&&(!notesUploadFile||!notesSheetName))||(id==='plaza'&&(!plazaUploadFile||!plazaTaskCount));
-  if(id==='adgroups')$('#run-summary').textContent='采集全部广告组 · 数量校验 · Excel';
-  if(id==='plaza')$('#run-summary').textContent=`${plazaTaskCount} 个启用任务 · Excel`;
+  const blocked=!account||account.status==='disabled'||(id==='notes'&&(!notesUploadFile||!notesSheetName));
+  if(id==='adgroups'){
+    $('#run-summary').textContent='广告组信息 · Excel';
+    paintAdgroupPreview();
+    const busy=adgroupSubmitting||['queued','running'].includes(run?.status);
+    $$('#adgroups-start,#adgroups-end,#run-account').forEach(el=>el.disabled=busy);
+    const reset=$('.config-panel [data-action="reset-config"]');if(reset)reset.disabled=busy;
+    button.disabled=blocked||busy;
+    button.innerHTML=busy?'<span class="spinner"></span> 正在采集':I('play','i16')+'开始采集';
+    return;
+  }
   button.disabled=blocked||['queued','running'].includes(run?.status);
   button.innerHTML=run?.status==='running'?'<span class="spinner"></span> 正在采集':blocked?(id==='notes'?I('upload','i16')+'请先上传文件':I('lock','i16')+'账号已停用'):I('play','i16')+'开始采集';
 };
 
 function realError(message) { const box=$('#config-errors'); if(box){box.textContent=message;box.classList.remove('hidden');} toast(message,'alert'); }
 function collectRealParams(id) {
-  if(id==='adgroups')return {pageUrl:$('#adgroups-url').value};
-  if(id==='plaza')return {collectComments:$('#plaza-comments').checked};
+  if(id==='adgroups'){
+    const start=$('#adgroups-start').value,end=$('#adgroups-end').value;
+    if(!!start!==!!end)throw new Error('请同时选择开始日期和结束日期，或全部留空使用今天。');
+    if(start&&start>end)throw new Error('开始日期不能晚于结束日期。');
+    return {start,end};
+  }
+  if(id==='plaza')return {collectComments:!!configs.plaza.collectComments};
   if(id==='notes'){const mode=$('#note-mode').value;return {sheetName:notesSheetName,mode,limit:mode==='trial'?Number($('#note-limit')?.value||3):null};}
   const c=configs[id];
   if(id!=='industry') {
     if(!c.input.trim()) throw new Error('请至少填写一个词根。');
-    return {roots:c.input,onlyContainRoot:!!$('#only-contain').checked,...(id==='trend'?{start:$('#date-start').value,end:$('#date-end').value}:{})};
+    return {roots:c.input,onlyContainRoot:true,...(id==='trend'?{start:$('#date-start').value,end:$('#date-end').value}:{})};
   }
   bubbleDraft.taxonomies=$$('[data-index].real-tax-row').map(row=>({name:$('[data-tax-name]',row).value.trim(),code:$('[data-tax-code]',row).value.trim()}));
   bubbleDraft.timePartition=Number($('#partition').value);
@@ -243,6 +324,8 @@ function collectRealParams(id) {
 async function realStart() {
   const id=currentTool, account=id==='notes'?{id:'',status:'verified'}:connectionFor(id);
   if(!account||account.status==='disabled') return realError('请先在平台账号中启用连接。');
+  if(id==='plaza'){if(plazaConfigBusy())return;plazaSubmitting=true;refreshConfigMeta();}
+  if(id==='adgroups'){if(adgroupSubmitting)return;adgroupSubmitting=true;refreshConfigMeta();}
   try {
     const params=collectRealParams(id);
     const button=$('#run-button'); button.disabled=true;
@@ -261,6 +344,7 @@ async function realStart() {
     await realPoll(created.id);
     if(['queued','running'].includes(realRuns.get(created.id)?.status)&&!pollTimers.has(created.id)) pollTimers.set(created.id,setInterval(()=>realPoll(created.id),1800));
   } catch(error) { realError(error.message); refreshConfigMeta(); }
+  finally{if(id==='plaza'){plazaSubmitting=false;refreshConfigMeta();}if(id==='adgroups'){adgroupSubmitting=false;refreshConfigMeta();}}
 }
 async function realPoll(id) {
   try {
@@ -286,7 +370,8 @@ renderResult = function () {
     body=`<div class="notice"><span>任务 <span class="mono">${esc(run.id.slice(0,8))}</span> · ${esc(run.created.replace('T',' ').slice(0,19))}<br>来源：小红书 / ${esc(tools[currentTool].source)} · 结果来自实际平台接口</span></div>
       ${busy?`<div class="run-progress"><div class="between"><span>${esc(run.stage||'正在采集')} · 已处理 ${run.processed} / ${run.total} 项</span><button class="text-btn" data-real-cancel="${run.id}">取消任务</button></div>${run.counts?`<div class="field-hint">成功 ${run.counts.success} · 部分成功 ${run.counts.partial} · 失败 ${run.counts.failed}</div>`:''}<div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>`:''}
       <div class="run-info-line">${statusPill(run.status)}<span>数据 <strong>${number(run.rowCount)}</strong> 行</span><span class="${run.failures.length?'failed':''}">失败 ${run.failures.length} 项</span></div>
-      <div class="result-toolbar"><div><h3>数据明细</h3><small>${rows.length?(currentTool==='notes'?'预览前 30 行；Excel 保留每条笔记的状态和错误原因':'预览前 30 行，下载含所有成功结果'):'暂无结果'}</small></div><div class="flex wrap" style="gap:6px">${(run.rowCount||(['adgroups','plaza'].includes(currentTool)&&run.outputReady))&&!busy&&(!['adgroups','plaza'].includes(currentTool)||run.outputReady)?`<a class="btn primary" href="/api/runs/${run.id}/download">${I('download','i16')}${currentTool==='notes'?'下载结果 Excel':`下载${run.status==='partial'?'成功结果':'完整结果'}`}</a>${currentTool==='notes'&&run.coverCount?`<a class="btn" href="/api/runs/${run.id}/assets">${I('download','i16')}下载封面素材包（${run.coverCount}）</a>`:''}`:'<button class="btn" disabled>完成后下载</button>'}</div></div>
+      <div class="result-toolbar"><div><h3>数据明细</h3><small>${rows.length?(currentTool==='notes'?'预览前 30 行；Excel 保留每条笔记的状态和错误原因':'预览前 30 行，下载含所有成功结果'):'暂无结果'}</small></div><div class="flex wrap" style="gap:6px">${(run.rowCount||(['adgroups','plaza'].includes(currentTool)&&run.outputReady))&&!busy&&(!['adgroups','plaza'].includes(currentTool)||run.outputReady)?`<a class="btn primary" href="/api/runs/${run.id}/download">${I('download','i16')}${currentTool==='adgroups'?'导出已采集数据':currentTool==='notes'?'下载结果 Excel':`下载${run.status==='partial'?'成功结果':'完整结果'}`}</a>${currentTool==='notes'&&run.coverCount?`<a class="btn" href="/api/runs/${run.id}/assets">${I('download','i16')}下载封面素材包（${run.coverCount}）</a>`:''}`:'<button class="btn" disabled>完成后下载</button>'}</div></div>
+      ${currentTool==='adgroups'&&run.dataSource==='api'?`<div class="notice">统计日期：${esc(run.params.start)} 至 ${esc(run.params.end)} · 已自动获取全部分页</div>`:''}
       ${rows.length?realTable(columns,rows):emptyView(busy?'正在等待数据':'暂无数据',busy?'完成第一批请求后会显示。':'请查看失败原因或调整查询条件。')}
       ${run.sheets.length?`<div class="table-caption">Excel 工作表：${run.sheets.map(s=>`${esc(s.name)}（${s.count} 行）`).join('、')}</div>`:`<div class="table-caption">显示 ${rows.length} / ${run.rowCount} 行 · 来自平台接口</div>`}
       ${run.failures.length?`<details class="run-details"><summary>失败明细（${run.failures.length} 项）</summary><ul>${run.failures.map(f=>`<li>${esc(f.item)}：${esc(f.error)}</li>`).join('')}</ul></details>`:''}
@@ -329,52 +414,47 @@ renderAccounts=function(){
   const header=$('.account-panel .panel-head .small');if(header)header.textContent='连接状态以真实平台请求为准';
   $$('[data-verify-account]').forEach(el=>{el.textContent='验证连接';el.disabled=false;el.title='实际请求平台接口验证登录状态';});
   $$('[data-edit-account]').forEach(el=>el.textContent='配置 / 登录');
-  const security=$('.account-security-note');if(security)security.innerHTML=`${I('shield','i20')}<div><strong>手动／扫码登录会打开 Edge 窗口；Cookie 导入不会弹出窗口。</strong><p>Cookie 在服务端加密保存，打开对应账号的配置页会回填原文；账号列表只显示配置状态。保存后还需验证连接。</p></div>`;
+  const security=$('.account-security-note');if(security)security.innerHTML=`${I('shield','i20')}<div><strong>手动／扫码登录会打开 Edge 窗口；Cookie 导入不会弹出窗口。</strong><p>Cookie 在服务端加密保存，已保存内容不回显；账号列表只显示配置状态。保存后还需验证连接。</p></div>`;
   $$('[data-account-row]').forEach(row=>{const a=accounts.find(x=>x.id===row.dataset.accountRow);if(a?.cookieConfigured){const method=row.querySelector('td:nth-child(2) small');if(method)method.textContent='Cookie 已保存 · '+(a.cookieSavedAt?formatTime(a.cookieSavedAt):'待验证');}});
   const foot=$('.account-table-foot');if(foot)foot.innerHTML='<span>每个账号使用独立浏览器会话</span><span>停用后不能用该账号发起采集</span>';
   const pageFoot=$('.page-foot');if(pageFoot)pageFoot.outerHTML=realFooter();
 };
 
 function realCredentialMarkup(method,a){
-  if(method==='cookie')return `<div class="credential-box"><h3>Cookie 配置</h3><div class="notice" style="margin:10px 0">${I('check','i14')}<span id="real-cookie-availability">${a.cookieConfigured?'正在读取已保存的 Cookie…':'尚未保存 Cookie'}</span></div><p class="field-hint">Cookie 会回填在下方。修改后点击“保存 Cookie”；随后点击“验证连接”检查是否有效。</p><div class="field"><div class="field-label"><label for="real-cookie">Cookie</label></div><textarea id="real-cookie" class="secret-input" rows="5" autocomplete="off" spellcheck="false" placeholder="name=value; name2=value2"></textarea></div><button class="btn primary sm" data-real-import-cookie="${esc(a.id)}">保存 Cookie</button></div>`;
+  if(method==='cookie')return `<div class="credential-box"><h3>Cookie 配置</h3><div class="notice" style="margin:10px 0">${I('check','i14')}<span id="real-cookie-availability">${a.cookieConfigured?'Cookie 已配置':'尚未保存 Cookie'}</span></div><p class="field-hint">已保存的 Cookie 不回显。留空保留原配置；填写新 Cookie 后保存以替换。</p><div class="field"><div class="field-label"><label for="real-cookie">Cookie</label></div><textarea id="real-cookie" class="secret-input" rows="5" autocomplete="off" spellcheck="false" placeholder="name=value; name2=value2"></textarea></div><button class="btn primary sm" data-real-import-cookie="${esc(a.id)}">保存 Cookie</button></div>`;
   return `<div class="credential-box login-box"><div class="login-explanation"><span class="browser-connection-icon">${I('terminal')}</span><div><h3>使用已登录浏览器会话</h3><p>支持手动输入账号密码或扫码登录；后续采集复用此会话。</p></div></div><div class="login-complete"><span class="pill ${a.status==='verified'?'green':'amber'}">${a.status==='verified'?'已验证':'待验证'}</span><button class="btn primary sm" data-real-login="${a.id}">打开登录窗口</button></div></div>`;
 }
 openAccountEditor=function(id=null){
   const existing=id?accounts.find(x=>x.id===id):null;
   if(id&&!existing)return;
-  const a=existing||{id:'',service:'jug',alias:'',status:'unverified'};
+  const a=existing||{id:'',platform:'xhs',serviceName:'',service:'custom',alias:'',status:'unverified'};
   accountDraft=clone(a); accountFormDirty=false;
   $('#account-drawer-content').innerHTML=`<div class="drawer-header"><div><div class="eyebrow">PLATFORM CONNECTION</div><h2 id="account-drawer-title">${existing?'配置平台账号':'新增平台账号'}</h2><p>${existing?esc(a.alias):'每个账号使用独立的本机登录会话。'}</p></div><button class="icon-btn" data-action="close-account" aria-label="关闭">${I('close','i20')}</button></div>
-    <div class="drawer-body"><div class="notice">${I('info')}<span>${existing?`这是本机的 ${esc(services[a.service].name)} 连接。`:'请选择聚光或灵犀服务。'}登录将在专用浏览器窗口中完成。</span></div>
-    ${realField('real-service','具体服务',realSelect('real-service',[['jug','聚光'],['lingxi','灵犀']],a.service),existing?'已建立的账号不能修改服务；可新增另一账号。':'')}
+    <div class="drawer-body"><div class="notice">${I('info')}<span>${existing?`这是本机的 ${esc((a.serviceName||services[a.service]?.name||a.service))} 连接。`:'请选择聚光或灵犀服务。'}登录将在专用浏览器窗口中完成。</span></div>
+    ${realField('real-platform','平台',realSelect('real-platform',Object.entries(platforms).map(([key,item])=>[key,item.name]),a.platform||services[a.service]?.platform||'xhs'))}
+    ${realField('real-service-name','服务',`<input id="real-service-name" maxlength="80" value="${esc(a.serviceName||services[a.service]?.name||'')}" placeholder="例如：聚光、灵犀、生意参谋">`)}
     ${realField('real-alias','账号别名<span class="required">*</span>',`<input id="real-alias" maxlength="40" value="${esc(a.alias)}" placeholder="例如：品牌 A 聚光账号">`)}
+    <div id="real-page-link-field" class="${a.service==='jug'?'':'hidden'}">${realField('real-page-link','页面链接<span class="required">*</span>',`<input id="real-page-link" type="url" maxlength="2048" value="${esc(a.pageLink||'')}" placeholder="粘贴已进入目标账户的聚光页面链接">`,'请粘贴包含 vSellerId 的聚光页面链接。')}</div>
     ${existing?`<div class="drawer-section-title"><span class="step">2</span><h3>建立连接</h3></div>
     ${realField('real-method','连接方式',realSelect('real-method',[['login','账号登录'],['cookie','Cookie 导入']],a.method||'login'))}
     <div id="real-credential-mode">${realCredentialMarkup(a.method||'login',a)}</div>`:''}
-    <p class="field-hint">账号密码只在平台登录窗口中填写；Cookie 在服务端加密保存，配置页回填时不会写入浏览器本地存储。</p></div>
+    <p class="field-hint">账号密码只在平台登录窗口中填写；Cookie 在服务端加密保存，已保存内容不回显。</p></div>
     <div class="drawer-footer"><div><strong>${existing?'登录完成后请验证连接':'保存后打开登录窗口'}</strong><small>${existing?'验证会调用实际平台接口。':'账号默认未验证。'}</small></div><div class="flex"><button class="btn" data-action="close-account">关闭</button><button class="btn primary" data-real-save-alias="${a.id||'new'}">${existing?'保存配置':'新增账号'}</button></div></div>`;
-  if(existing)$('#real-service').disabled=true;
+  if(existing){$('#real-platform').disabled=true;$('#real-service-name').disabled=true;}
   $('#account-drawer').showModal();
   if(existing&&a.method==='cookie')void fillStoredCookie(a.id);
 };
 closeAccountEditor=function(){accountDraft=null;accountFormDirty=false;if($('#account-drawer').open)$('#account-drawer').close();};
 async function fillStoredCookie(id){
-  const field=$('#real-cookie'),notice=$('#real-cookie-availability');
-  if(!field||!accountDraft||accountDraft.id!==id)return;
-  try{
-    const result=await realApi(`/api/accounts/${id}/cookie/reveal`,{method:'POST',body:'{}'});
-    if(!field.isConnected||!accountDraft||accountDraft.id!==id||accountDraft.method!=='cookie')return;
-    accountDraft.cookieOriginal=result.content;
-    if(!field.value)field.value=result.content;
-    if(notice)notice.textContent=result.available?`已保存 Cookie${accountDraft.cookieSavedAt?' · '+formatTime(accountDraft.cookieSavedAt):''}，可在下方查看和修改。`:'旧 Cookie 原文未能恢复，请重新粘贴并保存一次。';
-  }catch(error){if(notice?.isConnected)notice.textContent=`读取 Cookie 失败：${error.message}`;}
+ const notice=$('#real-cookie-availability'),account=accounts.find(item=>item.id===id);
+ if(notice)notice.textContent=account?.cookieConfigured?'Cookie 已配置':'尚未保存 Cookie';
 }
 async function saveCookieValue(id,content){
   const result=await realApi(`/api/accounts/${id}/cookie`,{method:'POST',body:JSON.stringify({content})});
   const a=accounts.find(x=>x.id===id);
   if(a){a.status='unverified';a.method='cookie';a.cookieConfigured=true;a.cookieSavedAt=result.cookieSavedAt;}
-  if(accountDraft&&accountDraft.id===id){Object.assign(accountDraft,a);accountDraft.cookieOriginal=content;}
-  if($('#real-credential-mode')){$('#real-credential-mode').innerHTML=realCredentialMarkup('cookie',accountDraft);$('#real-cookie').value=content;const note=$('#real-cookie-availability');if(note)note.textContent=`已保存 Cookie · ${formatTime(result.cookieSavedAt)}，可在下方查看和修改。`;}
+  if(accountDraft&&accountDraft.id===id){Object.assign(accountDraft,a);}
+  if($('#real-credential-mode')){$('#real-credential-mode').innerHTML=realCredentialMarkup('cookie',accountDraft);$('#real-cookie').value='';const note=$('#real-cookie-availability');if(note)note.textContent=`已保存 Cookie · ${formatTime(result.cookieSavedAt)}，请验证连接。`;}
   return result;
 }
 verifyAccount=async function(id){
@@ -396,8 +476,8 @@ renderPermissions=function(){
     <div class="matrix-scroll"><table class="matrix access-matrix"><thead><tr><th>平台 / 工具</th><th>允许访问</th><th>可用账号</th></tr></thead><tbody>${visible.map(id=>`<tr><td><span class="tool-title">${esc(tools[id].title)}</span><span class="tool-source">${esc(tools[id].source)}</span></td><td>${realTools[id]?'<span class="pill green">本机可用</span>':'<span class="pill amber">尚未接入</span>'}</td><td>${realTools[id]?esc(connectionFor(id)?.alias||'待配置'):'—'}</td></tr>`).join('')}</tbody></table></div><div class="permission-note">本机单用户模式不提供虚构成员或可绕过的授权开关。</div></section></div>${realFooter()}`;
 };
 
-clickActions.start=realStart;
-clickActions['reset-config']=()=>{if(currentTool==='plaza'){plazaUploadFile=null;plazaTaskCount=0;}if(realRuns.get(realSelected[currentTool])?.status==='running')return;configs[currentTool]=defaultConfig(currentTool);configs[currentTool].input='';configs[currentTool].onlyContainRoot=currentTool==='keywords';if(currentTool==='notes'){notesUploadFile=null;notesSheets=[];notesSheetName='';}bubbleDraft={taxonomies:[{name:'',code:''}],timePartition:1,dimensionType:'1',xindex:'1',yindexList:['readNum'],sizeIndex:'noteNum',regionCodes:'',brandIdList:'',spuIdList:'',seriesIdList:''};renderConfig();renderResult();};
+clickActions.start=()=>realStart();
+clickActions['reset-config']=()=>{if(currentTool==='plaza'&&plazaConfigBusy())return;if(['queued','running'].includes(realRuns.get(realSelected[currentTool])?.status))return;if(currentTool==='plaza'){++plazaUploadVersion;plazaUploadFile=null;plazaTaskCount=0;plazaTasks=[];plazaUploadState={phase:'idle',name:'',error:''};}configs[currentTool]=defaultConfig(currentTool);configs[currentTool].input='';configs[currentTool].onlyContainRoot=true;if(currentTool==='notes'){notesUploadFile=null;notesSheets=[];notesSheetName='';}bubbleDraft={taxonomies:[{name:'',code:''}],timePartition:1,dimensionType:'1',xindex:'1',yindexList:['readNum'],sizeIndex:'noteNum',regionCodes:'',brandIdList:'',spuIdList:'',seriesIdList:''};renderConfig();renderResult();};
 clickActions.template=()=>saveFile('﻿"词根"\r\n',`${tools[currentTool].title}_输入模板.csv`);
 clickActions['close-account']=closeAccountEditor;
 clickActions['add-account']=()=>openAccountEditor(null);
@@ -417,32 +497,23 @@ document.addEventListener('click',async event=>{
   const importButton=event.target.closest('[data-real-import-cookie]');
   if(importButton){const content=$('#real-cookie')?.value||'';if(!content.trim())return toast('请填写 Cookie。','alert');importButton.disabled=true;try{const result=await saveCookieValue(importButton.dataset.realImportCookie,content);toast(result.message,'info');}catch(error){toast(error.message,'alert');}finally{importButton.disabled=false;}return;}
   const save=event.target.closest('[data-real-save-alias]');
-  if(save){const alias=$('#real-alias').value.trim();if(!alias)return toast('请输入账号别名。','alert');try{const isNew=save.dataset.realSaveAlias==='new';if(!isNew&&accountDraft?.method==='cookie'){const content=$('#real-cookie')?.value||'';if(content.trim()&&content!==accountDraft.cookieOriginal)await saveCookieValue(save.dataset.realSaveAlias,content);}const result=await realApi(isNew?'/api/accounts':`/api/accounts/${save.dataset.realSaveAlias}`,{method:isNew?'POST':'PATCH',body:JSON.stringify(isNew?{service:$('#real-service').value,alias}:{alias})});if(isNew)accounts.push({...result,owner:'local',method:'login',credentialConfigured:true});else Object.assign(accounts.find(x=>x.id===result.id),result);closeAccountEditor();renderAccounts();toast(isNew?'账号已新增，请配置登录。':'配置已保存。');}catch(error){toast(error.message,'alert');}return;}
+  if(save){const alias=$('#real-alias').value.trim();if(!alias)return toast('请输入账号别名。','alert');try{const isNew=save.dataset.realSaveAlias==='new';const pageLink=$('#real-page-link')?.value.trim()||'';const platform=$('#real-platform').value,serviceName=$('#real-service-name').value.trim();const service=isNew?(platform==='xhs'&&serviceName==='聚光'?'jug':platform==='xhs'&&serviceName==='灵犀'?'lingxi':'custom'):accountDraft.service;if(isNew&&!serviceName)return toast('请填写服务。','alert');if(service==='jug'&&!pageLink)return toast('请填写页面链接。','alert');if(!isNew&&accountDraft?.method==='cookie'){const content=$('#real-cookie')?.value||'';if(content.trim())await saveCookieValue(save.dataset.realSaveAlias,content);}const result=await realApi(isNew?'/api/accounts':`/api/accounts/${save.dataset.realSaveAlias}`,{method:isNew?'POST':'PATCH',body:JSON.stringify(isNew?{platform,serviceName,alias,pageLink}:{alias,...(service==='jug'?{pageLink}:{})})});if(isNew)accounts.push(result);else Object.assign(accounts.find(x=>x.id===result.id),result);closeAccountEditor();renderAccounts();toast(isNew?'账号已新增，请配置登录。':'配置已保存。');}catch(error){toast(error.message,'alert');}return;}
   const open=event.target.closest('[data-real-view]');
   if(open){try{const run=await realApi(`/api/runs/${open.dataset.realView}`);realRuns.set(run.id,run);openTool(fromRealTool[run.tool],run);if(['queued','running'].includes(run.status)&&!pollTimers.has(run.id))pollTimers.set(run.id,setInterval(()=>realPoll(run.id),1800));}catch(error){toast(error.message,'alert');}return;}
 });
 document.addEventListener('change',async event=>{
   const el=event.target;
   if(el.id==='note-file'){void inspectNotesUpload(el.files?.[0]||null);return;}
-  if(el.id==='adgroups-url'){configs.adgroups.pageUrl=el.value;return;}
-  if(el.id==='plaza-comments'){configs.plaza.collectComments=el.checked;return;}
-  if(el.id==='plaza-file'){
-    const file=el.files[0];plazaUploadFile=null;plazaTaskCount=0;refreshConfigMeta();
-    if(!file)return;
-    const state=$('#plaza-file-state');
-    try{
-      if(!/\.xlsx$/i.test(file.name)||file.size>20*1024*1024)throw new Error('请选择不超过 20 MB 的 .xlsx 文件。');
-      state.textContent='正在检查筛选条件…';const form=new FormData();form.append('file',file,file.name);
-      const result=await realUploadApi('/api/plaza/inspect',form);
-      if(el.files[0]!==file)return;
-      plazaUploadFile=file;plazaTaskCount=result.taskCount;state.textContent=`已读取 ${plazaTaskCount} 个启用任务`;
-    }catch(error){state.textContent=error.message;}
-    refreshConfigMeta();return;
+  if(el.id==='adgroups-start'||el.id==='adgroups-end'){configs.adgroups[el.id==='adgroups-start'?'apiStart':'apiEnd']=el.value;scheduleAdgroupPreview();return;}
+  if(el.name==='plaza-content'){
+    if(plazaConfigBusy())return;
+    configs.plaza.collectComments=el.value==='comments';refreshConfigMeta();return;
   }
+  if(el.id==='plaza-file'){void inspectPlazaUpload(el.files?.[0]||null);return;}
   if(el.id==='note-sheet'){notesSheetName=el.value;refreshConfigMeta();return;}
   if(el.id==='note-mode'){$('#note-limit-field')?.classList.toggle('hidden',el.value!=='trial');refreshConfigMeta();return;}
+  if(el.id==='real-platform'){$('#real-page-link-field')?.classList.toggle('hidden',!($('#real-platform').value==='xhs'&&$('#real-service-name').value.trim()==='聚光'));return;}
   if(el.id==='real-method'&&accountDraft){accountDraft.method=el.value;$('#real-credential-mode').innerHTML=realCredentialMarkup(el.value,accountDraft);if(el.value==='cookie')void fillStoredCookie(accountDraft.id);return;}
-  if(el.id==='only-contain'){configs[currentTool].onlyContainRoot=el.checked;return;}
   if(el.id==='partition'){bubbleDraft.timePartition=Number(el.value);configs.industry.start=configs.industry.start.slice(0,bubbleDraft.timePartition===2?7:10);configs.industry.end=configs.industry.end.slice(0,bubbleDraft.timePartition===2?7:10);renderConfig();return;}
   if(el.id==='dimension')bubbleDraft.dimensionType=el.value;
   if(el.id==='x-axis')bubbleDraft.xindex=el.value;
@@ -460,13 +531,17 @@ $('#modal').addEventListener('close',()=>$('#modal').classList.remove('location-
     window.ZHICAI_SERVER_MODE=!!meta.serverMode;
     const me=meta.serverMode?await realApi('/api/auth/me'):null;
     if(me){window.ZHICAI_ME=me;window.ZHICAI_CSRF=me.csrfToken;}
+    // Availability is controlled by the server; adapters and form configuration remain intact.
+    for(const [uiId,apiId] of Object.entries(realTools)){
+      if((meta.disabledTools||[]).includes(apiId))delete realTools[uiId];
+    }
     toolLocationImages=meta.toolLocationImages||{};
     const name=meta.localUser||'本机用户';
     users=[{id:me?.id||'local',name:me?.email||name,team:me?.teamName||'本机使用',role:me?.role||'admin',expiry:'',grants:granted(me?me.tools.map(id=>fromRealTool[id]).filter(Boolean):Object.keys(realTools)),bindings:blankBindings()}];
     currentUser=users[0].id;editorUser=currentUser;editor=clone(users[0]);
     accounts=(await realApi('/api/accounts')).map(a=>({...a,owner:a.ownerUserId||'local',method:a.method||'login',loginMode:'manual',credentialConfigured:true,revision:1,created:Date.now(),updated:Date.now(),lastEvent:''}));
     runs=[];page='catalog';platform='all';catalogQuery='';
-    configs.trend.input='';configs.trend.onlyContainRoot=false;
+    configs.trend.input='';configs.trend.onlyContainRoot=true;
     configs.keywords.input='';configs.keywords.onlyContainRoot=true;
     render();
     await fetchHistory();
@@ -479,3 +554,57 @@ document.addEventListener('click',async event=>{
   try{await realApi(`/api/runs/${button.dataset.realCancel}/cancel`,{method:'POST',body:'{}'});await realPoll(button.dataset.realCancel);}
   catch(error){toast(error.message,'alert');button.disabled=false;}
 });
+
+function adgroupPreviewInput(){
+  const start=configs.adgroups.apiStart||'',end=configs.adgroups.apiEnd||'',account=connectionFor('adgroups');
+  return {start,end,account,key:account&&!account.disabled?`${account.id}\n${start}\n${end}`:''};
+}
+function paintAdgroupPreview(){
+  const el=$('#adgroup-link-state');if(!el)return;
+  const {key}=adgroupPreviewInput(), state=adgroupPreview;
+  el.className='adgroup-link-state';
+  if(!key||state.key!==key){el.textContent='选择账号后自动读取广告组数量';return;}
+  if(state.phase==='loading'||state.phase==='pending'){
+    el.innerHTML='<span class="spinner" aria-hidden="true"></span>正在查询广告组数量…';return;
+  }
+  if(state.phase==='error'){el.classList.add('error');el.textContent=state.error;return;}
+  if(state.phase==='ready'){
+    el.textContent=`可导出 ${state.data.websiteTotal??'未知'} 个广告组`;
+    return;
+  }
+  el.textContent='选择账号后自动读取广告组数量';
+}
+function scheduleAdgroupPreview(){
+  clearTimeout(adgroupPreviewTimer);
+  const {key}=adgroupPreviewInput();
+  if(key!==adgroupPreview.key)adgroupPreview={key,phase:key?'pending':'idle',data:null,error:''};
+  paintAdgroupPreview();
+  adgroupPreviewTimer=setTimeout(()=>void readAdgroupPreview(),600);
+}
+async function readAdgroupPreview(){
+  if(page!=='tool'||currentTool!=='adgroups')return;
+  const input=adgroupPreviewInput();if(!input.key)return;
+  if(adgroupPreviewFlight)return;
+  if(adgroupPreview.key===input.key&&adgroupPreview.phase==='ready')return;
+  if(!!input.start!==!!input.end||(input.start&&input.start>input.end)){
+    adgroupPreview={key:input.key,phase:'error',data:null,error:!!input.start!==!!input.end?'请同时选择开始和结束日期，或全部留空。':'开始日期不能晚于结束日期。'};paintAdgroupPreview();return;
+  }
+  adgroupPreview={key:input.key,phase:'loading',data:null,error:''};paintAdgroupPreview();
+  adgroupPreviewFlight=(async()=>{
+    try{
+      const data=await realApi('/api/adgroups/inspect',{method:'POST',body:JSON.stringify({accountId:input.account.id,start:input.start,end:input.end})});
+      if(adgroupPreviewInput().key===input.key)adgroupPreview={key:input.key,phase:'ready',data,error:''};
+    }catch(error){
+      if(adgroupPreviewInput().key===input.key)adgroupPreview={key:input.key,phase:'error',data:null,error:error.message};
+    }finally{
+      adgroupPreviewFlight=null;paintAdgroupPreview();
+      if(adgroupPreviewInput().key!==input.key)void readAdgroupPreview();
+    }
+  })();
+  await adgroupPreviewFlight;
+}
+document.addEventListener('change',event=>{
+  if(event.target.id==='run-account'&&currentTool==='adgroups')scheduleAdgroupPreview();
+});
+
+document.addEventListener('input',event=>{if(event.target.id==='real-service-name')$('#real-page-link-field')?.classList.toggle('hidden',!($('#real-platform').value==='xhs'&&event.target.value.trim()==='聚光'));});

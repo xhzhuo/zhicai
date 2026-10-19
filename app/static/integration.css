@@ -34,3 +34,53 @@
 .industry-manage-item strong,.industry-manage-item small{display:block;overflow-wrap:anywhere}
 .industry-manage-item small{font-family:ui-monospace,Consolas,monospace;color:var(--muted)}
 @media(max-width:540px){.industry-row-fields{grid-template-columns:1fr}}
+
+.adgroup-link-state{display:flex;align-items:center;gap:6px;min-height:24px;margin-top:7px;font-size:11px;line-height:1.6;color:#718098}
+.adgroup-link-state.error{color:#c24e4e}
+.adgroup-link-state .spinner{width:11px;height:11px;flex:0 0 auto}
+.adgroup-scope{border:0;padding:0;margin:17px 0 9px;min-width:0}
+.adgroup-scope legend{font-size:11px;font-weight:600;color:#53637c;margin-bottom:8px;padding:0}
+.adgroup-scope-options{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.adgroup-scope-options label{display:flex;align-items:center;gap:7px;min-height:38px;padding:8px 9px;border:1px solid var(--line);border-radius:6px;font-size:11px;color:#53637c;cursor:pointer}
+.adgroup-scope-options label:has(input:checked){border-color:var(--primary);background:#f5f7ff;color:var(--primary)}
+.adgroup-scope-options input{accent-color:var(--primary);margin:0;flex:0 0 auto}
+.adgroup-advanced{margin:13px 0 19px;font-size:10px;color:#8291a9}
+.adgroup-advanced summary{cursor:pointer}
+.adgroup-advanced button{margin-top:9px}
+
+.plaza-upload{margin:16px 0 20px}
+.plaza-upload-heading{gap:8px;margin-bottom:9px;font-size:11px;font-weight:600;color:#53637c}
+.plaza-upload-heading a{font-size:10px;font-weight:400;white-space:nowrap}
+.plaza-upload-row{position:relative;display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--line);border-radius:7px;background:#fbfcff}
+#plaza-file-details{flex:1;min-width:0}
+#plaza-file-name{display:block;font-size:11px;line-height:1.6;color:#53637c;overflow-wrap:anywhere;font-weight:500}
+#plaza-file-state{margin-top:4px;font-size:10px;line-height:1.6}
+#plaza-file-state.error{color:#c24e4e}
+.plaza-file-choice{flex:0 0 auto;white-space:nowrap;cursor:pointer;font-weight:400}
+.plaza-file-choice.is-disabled{opacity:.5;pointer-events:none;cursor:default}
+.plaza-file-input{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.plaza-upload-row:focus-within{outline:2px solid #b9c5ff;outline-offset:2px}
+.plaza-task-preview{margin-top:10px;font-size:10px;color:#6b7c96}
+.plaza-task-preview summary{cursor:pointer;line-height:1.7}
+.plaza-task-preview ol{list-style:none;padding:0;margin:10px 0 0;max-height:300px;overflow-y:auto}
+.plaza-task-preview li{padding:10px 0;border-bottom:1px solid var(--line)}
+.plaza-task-preview li:first-child{padding-top:0}
+.plaza-task-preview li>strong{display:block;font-size:11px;color:#53637c;overflow-wrap:anywhere}
+.plaza-task-preview dl{display:grid;grid-template-columns:56px minmax(0,1fr);gap:4px 7px;margin:7px 0 0;font-size:10px;line-height:1.7}
+.plaza-task-preview dt{color:#8997ad}.plaza-task-preview dd{margin:0;color:#61738e;overflow-wrap:anywhere}
+.plaza-instructions{margin:14px 0 20px;font-size:10px;line-height:1.8;color:#8291a9}
+.plaza-instructions summary{cursor:pointer}.plaza-instructions p{margin-top:8px}
+.plaza-content{margin-top:20px}
+
+/* Compact industry selection; names in the run form, codes in dialogs. */
+.industry-section-tools{display:flex;justify-content:flex-end;margin:-25px 0 12px;min-height:18px}
+.industry-section-tools .text-btn{font-size:11px;line-height:18px}
+.industry-selected-heading{margin:12px 0 6px;font-size:11px;color:var(--muted)}
+.industry-selected-heading span{color:var(--ink);font-weight:600}
+.industry-selected-list{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#fff}
+.industry-selected{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);min-height:40px}
+.industry-selected:last-child{border-bottom:0}
+.industry-selected-name{min-width:0;overflow-wrap:anywhere;color:var(--ink);font-size:12px}
+.industry-selected .icon-btn{width:28px;height:28px;flex:none;font-size:18px}
+.industry-selected-empty{padding:14px 10px;font-size:11px;color:var(--muted);text-align:center;background:#fafcff}
+.industry-add{margin-top:12px;font-size:12px}

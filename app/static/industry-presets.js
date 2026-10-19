@@ -19,14 +19,14 @@ async function loadIndustryPresets(){
 }
 
 realTaxRows=function(){
-  const options=industryPresets.map(row=>`<option value="${esc(row.id)}">${esc(row.name)} · ${esc(row.code)}</option>`).join('');
-  const rows=bubbleDraft.taxonomies.map((row,i)=>`<div class="industry-row real-tax-row" data-index="${i}">
-    <div class="industry-row-fields"><input data-tax-name="${i}" value="${esc(row.name)}" maxlength="40" placeholder="行业名称，如母婴奶粉" aria-label="行业名称"><input data-tax-code="${i}" value="${esc(row.code)}" maxlength="80" placeholder="行业code" aria-label="行业code"></div>
-    <div class="industry-row-actions"><button type="button" class="text-btn" data-tax-save-row="${i}">保存到常用行业</button><button type="button" class="text-btn" data-real-remove-tax="${i}">从本次采集移除</button></div>
-  </div>`).join('');
-  return `<div class="industry-picker"><select id="industry-preset" aria-label="选择常用行业"><option value="">${industryPresetsLoaded?'选择常用行业':'正在读取常用行业…'}</option>${options}</select><button type="button" class="btn sm" data-tax-use-preset ${options?'':'disabled'}>加入本次采集</button></div>
-    <div id="real-tax-list">${rows}</div>
-    <div class="industry-picker-actions"><button type="button" class="text-btn" data-real-add-tax>${I('plus','i14')}手动添加行业</button><button type="button" class="text-btn" data-tax-manage>管理常用行业</button></div>`;
+  const selected=bubbleDraft.taxonomies.filter(row=>row.name&&row.code);
+  const options=industryPresets.map(row=>`<option value="${esc(row.id)}" ${selected.some(item=>item.code===row.code)?'disabled':''}>${esc(row.name)}</option>`).join('');
+  const rows=selected.map((row,i)=>`<li class="industry-selected real-tax-row" data-index="${i}"><span class="industry-selected-name" title="行业code：${esc(row.code)}">${esc(row.name)}</span><input type="hidden" data-tax-name="${i}" value="${esc(row.name)}"><input type="hidden" data-tax-code="${i}" value="${esc(row.code)}"><button type="button" class="icon-btn" data-tax-remove-selected="${i}" aria-label="移除${esc(row.name)}">×</button></li>`).join('');
+  return `<div class="industry-section-tools"><button type="button" class="text-btn" data-tax-manage>管理常用行业</button></div>
+    <select id="industry-preset" aria-label="选择常用行业" ${industryPresetsLoaded?'':'disabled'}><option value="">${industryPresetsLoaded?'选择常用行业':'正在读取常用行业…'}</option>${options}</select>
+    <div class="industry-selected-heading">已选 <span>${selected.length}</span> 个</div>
+    <ul id="real-tax-list" class="industry-selected-list">${rows||'<li class="industry-selected-empty">请选择或新增行业</li>'}</ul>
+    <button type="button" class="text-btn industry-add" data-tax-new>${I('plus','i14')}新增行业</button>`;
 };
 
 const baseIndustryRenderConfig=renderConfig;
@@ -47,21 +47,28 @@ function useIndustryPreset(){
   renderConfig();
 }
 
-async function saveIndustryRow(index){
+function newIndustryPreset(){
   syncIndustryRows();
-  const row=bubbleDraft.taxonomies[index];
-  if(!row?.name||!row?.code)return toast('请填写行业名称和行业code。','alert');
-  try{
-    const saved=await realApi('/api/industry-presets',{method:'POST',body:JSON.stringify(row)});
-    industryPresets.push(saved);
-    industryPresets.sort((a,b)=>a.name.localeCompare(b.name,'zh-CN'));
-    renderConfig();
-    toast('已保存到常用行业。');
-  }catch(error){toast(error.message,'alert');}
+  if(bubbleDraft.taxonomies.filter(row=>row.code).length>=20)return toast('一次最多选择20个行业。','alert');
+  showModal('新增行业',`<div class="field"><label for="new-industry-name">行业名称<span class="required">*</span></label><input id="new-industry-name" maxlength="40" autocomplete="off" placeholder="例如：母婴奶粉"></div><div class="field"><label for="new-industry-code">行业code<span class="required">*</span></label><input id="new-industry-code" maxlength="80" autocomplete="off" spellcheck="false" placeholder="填写行业code"></div><p id="industry-save-error" class="form-errors hidden" role="alert"></p>`,'保存并选用',()=>{
+    const name=$('#new-industry-name').value.trim(),code=$('#new-industry-code').value.trim();
+    const error=$('#industry-save-error');
+    if(!name||!code){error.textContent='请填写行业名称和行业code。';error.classList.remove('hidden');return false;}
+    const button=$('#modal-foot [data-action="modal-confirm"]');button.disabled=true;
+    void (async()=>{try{
+      const saved=await realApi('/api/industry-presets',{method:'POST',body:JSON.stringify({name,code})});
+      industryPresets.push(saved);industryPresets.sort((a,b)=>a.name.localeCompare(b.name,'zh-CN'));
+      bubbleDraft.taxonomies=bubbleDraft.taxonomies.filter(row=>row.name&&row.code);
+      if(!bubbleDraft.taxonomies.some(row=>row.code===saved.code))bubbleDraft.taxonomies.push({name:saved.name,code:saved.code});
+      closeModal();renderConfig();toast('已保存并选用。');
+    }catch(exc){if(error.isConnected){error.textContent=exc.message;error.classList.remove('hidden');button.disabled=false;}}})();
+    return false;
+  });
+  $('#new-industry-name')?.focus();
 }
 
 function manageIndustryPresets(){
-  const body=industryPresets.length?`<div class="industry-manage-list">${industryPresets.map(row=>`<div class="industry-manage-item"><span><strong>${esc(row.name)}</strong><small>${esc(row.code)}</small></span>${row.editable?`<button type="button" class="text-btn" data-tax-edit="${esc(row.id)}">编辑</button><button type="button" class="text-btn" data-tax-delete="${esc(row.id)}">删除</button>`:''}</div>`).join('')}</div>`:'<p>还没有保存的行业。请先在本次采集列表中填写并保存。</p>';
+  const body=industryPresets.length?`<div class="industry-manage-list">${industryPresets.map(row=>`<div class="industry-manage-item"><span><strong>${esc(row.name)}</strong><small>${esc(row.code)}</small></span>${row.editable?`<button type="button" class="text-btn" data-tax-edit="${esc(row.id)}">编辑</button><button type="button" class="text-btn" data-tax-delete="${esc(row.id)}">删除</button>`:''}</div>`).join('')}</div>`:'<p>还没有常用行业，可从“新增行业”开始添加。</p>';
   showModal('管理常用行业',body);
 }
 
@@ -108,7 +115,8 @@ document.addEventListener('click',event=>{
   const el=event.target.closest('button');
   if(!el||el.disabled)return;
   if(el.hasAttribute('data-tax-use-preset')){useIndustryPreset();return;}
-  if(el.dataset.taxSaveRow!==undefined){void saveIndustryRow(Number(el.dataset.taxSaveRow));return;}
+  if(el.hasAttribute('data-tax-new')){newIndustryPreset();return;}
+  if(el.dataset.taxRemoveSelected!==undefined){syncIndustryRows();bubbleDraft.taxonomies.splice(Number(el.dataset.taxRemoveSelected),1);renderConfig();return;}
   if(el.hasAttribute('data-tax-manage')){syncIndustryRows();manageIndustryPresets();return;}
   if(el.dataset.taxEdit){editIndustryPreset(el.dataset.taxEdit);return;}
   if(el.dataset.taxDelete){deleteIndustryPreset(el.dataset.taxDelete);return;}
@@ -125,3 +133,5 @@ document.addEventListener('change',event=>{
   if(!available.length){page='catalog';render();window.scrollTo(0,0);return;}
   openTool(available.includes(currentTool)?currentTool:available[0]);
 },true);
+
+document.addEventListener('change',event=>{if(event.target.id==='industry-preset'&&event.target.value)useIndustryPreset();});

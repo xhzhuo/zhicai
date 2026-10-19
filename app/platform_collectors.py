@@ -169,52 +169,100 @@ async def collect(run, cookies, folder, save, max_bytes):
                 await collect_adgroups(run, page, worker, output, save)
             else:
                 await collect_plaza(run, page, folder, output, save)
-            import_result(run, output, max_bytes)
+            if output.is_file():
+                import_result(run, output, max_bytes)
             run['processed'] = run['total']
         finally:
             await context.close()
             await playwright.stop()
 
 
+def adgroups_mode(raw):
+    mode = raw.get('mode', 'all')
+    if mode not in ('inspect', 'current', 'all', 'diagnostics'):
+        raise ValueError('广告组操作无效')
+    return mode
+
+
+async def adgroup_message(worker, tab_id, command):
+    return await worker.evaluate("""async ({id,type}) => chrome.tabs.sendMessage(id,{type})""",
+                                 {'id':tab_id,'type':command})
+
+
+def save_adgroup_state(run, state, page_total, current_count, save):
+    run['adgroupState'] = {'websiteTotal':page_total, 'currentPageCount':current_count,
+        'collectedCount':len(state.get('records', [])),
+        'allCollected':bool(state.get('completed')) and len(state.get('records', [])) == page_total}
+    run['stage'] = state.get('status', '正在读取广告组')
+    save(run)
+
+
 async def collect_adgroups(run, page, worker, output, save):
-    run['stage'] = '打开标准投广告组页面'; save(run)
-    # A pasted target URL avoids menu navigation; otherwise use the visible menu.
-    if not await page.locator('th').filter(has_text='广告组').count():
-        for label in ('竞价推广','标准投','广告组'):
-            candidate = page.get_by_text(label, exact=True)
-            if await candidate.count():
-                await candidate.first.click(timeout=10000)
-                await asyncio.sleep(1)
-    await page.locator('th').filter(has_text='广告组').first.wait_for(timeout=20000)
+    mode=adgroups_mode(run.get('params', {}))
+    run['stage'] = '正在识别广告组页面'; save(run)
+    if mode != 'diagnostics':
+        if not await page.locator('th').filter(has_text='广告组').count():
+            for label in ('竞价推广','标准投','广告组'):
+                candidate = page.get_by_text(label, exact=True)
+                if await candidate.count():
+                    await candidate.first.click(timeout=10000)
+                    await asyncio.sleep(1)
+        try:
+            await page.locator('th').filter(has_text='广告组').first.wait_for(timeout=20000)
+        except Exception as exc:
+            raise RuntimeError('当前页面未找到广告组表格，无法读取可采集条数。请确认链接指向广告组列表；计划列表不适用。') from exc
     tab_id = await worker.evaluate("""async url => {
       const tabs=await chrome.tabs.query({});return tabs.find(t=>t.url===url)?.id;
     }""", page.url)
     if tab_id is None:
-        raise RuntimeError('未找到聚光广告组页面，请检查平台页面链接')
+        raise RuntimeError('未找到聚光页面，请检查平台页面链接')
+    if mode == 'diagnostics':
+        response=await adgroup_message(worker,tab_id,'GET_DIAGNOSTICS')
+        if not response.get('ok'):
+            raise RuntimeError(response.get('error') or '无法读取分页诊断信息')
+        run.update(diagnostics=response['diagnostics'],status='complete',stage='分页诊断信息已生成')
+        return
     page_total = await page.evaluate("""() => {
         const match=document.body.innerText.replace(/\\s+/g,'').match(/合计(\\d+)条记录/);
         return match?Number(match[1]):null;
     }""")
-    if not page_total:
-        raise RuntimeError('无法读取广告组页面总记录数，已停止以避免导出不完整结果')
-    # Worker sends to the exact tab; the original popup's active-tab assumption is avoided.
-    task = asyncio.create_task(worker.evaluate("""async id => chrome.tabs.sendMessage(id,{type:'COLLECT_ALL'})""", tab_id))
-    try:
-        while not task.done():
-            await asyncio.sleep(1)
-            state = await worker.evaluate("""async id=>chrome.tabs.sendMessage(id,{type:'GET_STATE'})""", tab_id)
-            run['stage'] = state.get('status', '采集广告组')
-            run['processed'] = len(state.get('records', []))
-            run['total'] = state.get('expectedTotal') or 1
-            save(run)
-        state = await task
-    finally:
-        if not task.done():
-            task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
-    records = state.get('records', [])
-    if not state.get('ok') or not state.get('completed') or len(records) != state.get('expectedTotal') or len(records) != page_total:
-        raise RuntimeError(state.get('error') or '广告组数量校验未通过，已阻止导出')
+    # Start from DOM rows, excluding any records passively captured from other pages.
+    await adgroup_message(worker,tab_id,'CLEAR')
+    current=await adgroup_message(worker,tab_id,'SCRAPE_CURRENT')
+    if not current.get('ok'):
+        raise RuntimeError(current.get('error') or '无法采集当前页')
+    current_count=len(current.get('records',[]))
+    save_adgroup_state(run,current,page_total,current_count,save)
+    run['collectionScope']=mode
+    if mode=='inspect':
+        run['adgroupState']['collectedCount']=0
+        run.update(status='complete',stage='页面条数已读取，尚未采集',processed=1,total=1)
+        return
+    if mode=='current':
+        state=current
+        if not state.get('records'):
+            raise RuntimeError('当前页没有可导出的广告组数据')
+    else:
+        if not page_total:
+            raise RuntimeError('无法读取广告组页面总记录数，已停止以避免导出不完整结果')
+        task = asyncio.create_task(adgroup_message(worker,tab_id,'COLLECT_ALL'))
+        try:
+            while not task.done():
+                await asyncio.sleep(1)
+                state=await adgroup_message(worker,tab_id,'GET_STATE')
+                run['processed']=len(state.get('records', []));run['total']=page_total
+                save_adgroup_state(run,state,page_total,current_count,save)
+            state=await task
+        finally:
+            if not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+        records=state.get('records', [])
+        save_adgroup_state(run,state,page_total,current_count,save)
+        if not state.get('ok') or not state.get('completed') or len(records)!=state.get('expectedTotal') or len(records)!=page_total:
+            raise RuntimeError(state.get('error') or '广告组数量校验未通过，已阻止导出全部结果')
+    records=state.get('records', [])
+    save_adgroup_state(run,state,page_total,current_count,save)
     # Use the supplied writer so IDs, status, account and time retain the source contract.
     writer = (ASSETS/'adgroups/xlsx.js').read_text(encoding='utf-8')
     await page.evaluate(writer)
@@ -227,6 +275,22 @@ async def collect_adgroups(run, page, worker, output, save):
 
 
 async def collect_plaza(run, page, folder, output, save):
+    # The extension is injected on all platform pages, including the login page.
+    # Its presence alone is not proof that the cooperation plaza has loaded.
+    run['stage']='正在确认合作广场页面';save(run)
+    try:
+        await page.locator('.ugc-content-filter-wrap').wait_for(timeout=30000)
+    except Exception as exc:
+        actual=urlparse(page.url)
+        try:
+            body=await page.locator('body').inner_text(timeout=3000)
+        except Exception:
+            body=''
+        if '短信登录' in body and '账号登录' in body:
+            raise RuntimeError('聚光浏览器处于未登录状态：已保存的 Cookie 未能恢复登录。请到“平台账号”重新导入完整有效的聚光 Cookie，再重试。') from exc
+        if not actual.path.startswith('/microapp/creativity/ugc'):
+            raise RuntimeError(f'未进入合作广场，页面跳转到了 {actual.path or "/"}。请检查所选账号的页面链接及浏览器登录状态。') from exc
+        raise RuntimeError('合作广场筛选区未加载。请检查页面访问状态、登录状态或页面结构是否变化。') from exc
     host = page.locator('#xhs-excel-assistant')
     await host.wait_for(timeout=25000)
     await host.locator('#file').set_input_files(str(folder/'筛选条件.xlsx'))
@@ -249,6 +313,8 @@ async def collect_plaza(run, page, folder, output, save):
         last_snapshot = snapshot
         run['stage'] = snapshot.get('commentStatus') if snapshot.get('commentsActive') else snapshot.get('status','采集笔记')
         audit = snapshot.get('audit', [])[1:]
+        run['collectionAudit']=[{'task':str(row[1]),'state':str(row[2]),'message':str(row[3] or '')}
+                                for row in audit if len(row)>=4]
         run['processed'] = sum(row[2] in ('完整','部分结果','失败') for row in audit)
         run['total'] = snapshot.get('plans') or run['total']
         rows = snapshot.get('rows', [])
@@ -259,6 +325,16 @@ async def collect_plaza(run, page, folder, output, save):
         if not snapshot.get('running') and not snapshot.get('commentsActive'):
             break
         await asyncio.sleep(1)
+    status=(last_snapshot or {}).get('status','')
+    if not last_snapshot or len(last_snapshot.get('rows', [])) < 2:
+        audit=(last_snapshot or {}).get('audit', [])[1:]
+        if status.startswith('已停止：') or any(len(row)>2 and row[2]=='失败' for row in audit):
+            reason=status.split('。已采集内容仍可导出')[0]
+            if not reason:
+                reason=next((str(row[3]) for row in audit if len(row)>3 and row[3]),'未获得笔记数据')
+            raise RuntimeError(reason)
+        if not audit:
+            raise RuntimeError(status or '未获得采集记录，请检查聚光连接及筛选文件')
     if not last_snapshot or len(last_snapshot.get('rows', [])) < 2:
         # Empty valid results still carry the original audit sheet.
         if not last_snapshot or len(last_snapshot.get('audit', [])) < 2:
@@ -266,6 +342,8 @@ async def collect_plaza(run, page, folder, output, save):
     if '评论补采准备失败' in last_snapshot.get('status', ''):
         run.setdefault('failures', []).append({'item':'评论','error':last_snapshot['status']})
         await host.locator('#collectComments').uncheck()
+    if not await host.locator('#export').is_enabled():
+        raise RuntimeError((last_snapshot or {}).get('status') or '采集尚未产生可导出结果')
     async with page.expect_download(timeout=30000) as download_info:
         await host.locator('#export').click()
     download = await download_info.value
