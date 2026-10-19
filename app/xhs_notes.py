@@ -238,10 +238,14 @@ def build_session(retries: int = 0) -> requests.Session:
     return session
 
 
-def fetch_note_http(session: requests.Session, page_url: str) -> NoteMetadata:
+def fetch_note_http(session: requests.Session, page_url: str, deadline: float | None = None) -> NoteMetadata:
+    deadline = deadline if deadline is not None else time.monotonic() + 10
     current_url = page_url
     for _ in range(6):
-        with session.get(current_url, timeout=(5, 10), allow_redirects=False, stream=True) as response:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise NoteFetchError("笔记页面加载超时")
+        with session.get(current_url, timeout=(min(5, remaining), min(5, remaining)), allow_redirects=False, stream=True) as response:
             if response.is_redirect or response.is_permanent_redirect:
                 target = urljoin(current_url, response.headers.get("Location", ""))
                 parsed = urlparse(target)
@@ -256,6 +260,8 @@ def fetch_note_http(session: requests.Session, page_url: str) -> NoteMetadata:
             chunks: list[bytes] = []
             size = 0
             for chunk in response.iter_content(64 * 1024):
+                if time.monotonic() >= deadline:
+                    raise NoteFetchError("笔记页面加载超时")
                 size += len(chunk)
                 if size > MAX_PAGE_BYTES:
                     raise NoteFetchError("笔记页面超过 20 MB")

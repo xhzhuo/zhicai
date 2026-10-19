@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "聚光笔记 Excel 采集助手",
+  "version": "1.5.0",
+  "description": "从 Excel 读取筛选条件，按需采集笔记评论、分析评论情感并生成关键词词云。所有处理在本机完成。",
+  "minimum_chrome_version": "111",
+  "background": {
+    "service_worker": "comments-background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://ad.xiaohongshu.com/*"
+      ],
+      "js": [
+        "capture.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://ad.xiaohongshu.com/*"
+      ],
+      "js": [
+        "xlsx.js",
+        "core.js",
+        "site-adapter.js",
+        "comments-core.js",
+        "comments-panel.js",
+        "controller.js",
+        "workbench-bridge.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.xiaohongshu.com/explore/*"
+      ],
+      "js": [
+        "comments-worker.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

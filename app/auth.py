@@ -23,8 +23,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
 PASSWORDS = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1)
 COOKIE_NAME = "__Host-zhicai_session"
-TOOLS = {"recommend", "combined", "bubble", "notes"}
-BOOTSTRAP_EMAIL = os.environ.get("ZHICAI_BOOTSTRAP_EMAIL", "admin@perform.net").strip().lower()
+TOOLS = {"recommend", "combined", "bubble", "notes", "adgroups", "plaza"}
 EMAIL_RE = re.compile(r"^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$")
 
 
@@ -78,6 +77,12 @@ def initialize() -> None:
           owner_user_id text NOT NULL REFERENCES users(id), data jsonb NOT NULL,
           deleted_at timestamptz);
         CREATE INDEX IF NOT EXISTS idx_accounts_team ON platform_accounts(team_id) WHERE deleted_at IS NULL;
+        CREATE TABLE IF NOT EXISTS industry_presets (
+          id text PRIMARY KEY, team_id text NOT NULL REFERENCES teams(id),
+          owner_user_id text NOT NULL REFERENCES users(id),
+          name text NOT NULL, code text NOT NULL,
+          created_at timestamptz NOT NULL DEFAULT now(),
+          UNIQUE(team_id,name), UNIQUE(team_id,code));
         CREATE TABLE IF NOT EXISTS audit_events (
           id bigserial PRIMARY KEY, actor_user_id text REFERENCES users(id),
           action text NOT NULL, object_type text NOT NULL, object_id text NOT NULL,
@@ -286,25 +291,41 @@ def register(payload: Registration, request: Request) -> dict:
     if not EMAIL_RE.fullmatch(email) or len(payload.password) < 12 or len(payload.password) > 128:
         raise HTTPException(422, "请填写有效邮箱和 12～128 位密码")
     with db() as conn:
-        # Bootstrap is available only behind the temporary Caddy password gate.
-        first_admin = not conn.execute("SELECT 1 FROM users WHERE role='admin' LIMIT 1").fetchone()
-        bootstrap = first_admin and email == BOOTSTRAP_EMAIL
-        if not bootstrap:
-            team = conn.execute("SELECT id FROM teams WHERE id=%s AND selectable=true", (payload.teamId,)).fetchone()
-            if not team:
-                raise HTTPException(422, "请选择有效团队")
+        team = conn.execute("SELECT id FROM teams WHERE id=%s AND selectable=true", (payload.teamId,)).fetchone()
+        if not team:
+            raise HTTPException(422, "请选择有效团队")
         if conn.execute("SELECT 1 FROM users WHERE email=%s", (email,)).fetchone():
             return {"message": "申请已提交；如需开通，请联系管理员。"}
         user_id = uuid.uuid4().hex
-        status, role, team_id = ("active", "admin", "bootstrap") if bootstrap else ("pending", "member", None)
         conn.execute("""INSERT INTO users(id,email,password_hash,team_id,requested_team_id,role,status)
             VALUES (%s,%s,%s,%s,%s,%s,%s)""",
-                     (user_id, email, PASSWORDS.hash(payload.password), team_id,
-                      None if bootstrap else payload.teamId, role, status))
+                     (user_id, email, PASSWORDS.hash(payload.password), None,
+                      payload.teamId, "member", "pending"))
         audit(conn, user_id, "register", "user", user_id)
-    if bootstrap:
-        import_legacy_accounts(user_id)
-    return {"message": "管理员账号已建立，请登录。" if bootstrap else "申请已提交；审核通过后即可登录。"}
+    return {"message": "申请已提交；审核通过后即可登录。"}
+
+
+def create_initial_admin(email: str, password: str) -> str:
+    """Server-side provisioning only; never promote an existing public applicant."""
+    if not server_mode():
+        raise ValueError("管理员初始化仅支持服务器模式")
+    email = email.strip().lower()
+    if not EMAIL_RE.fullmatch(email) or not 12 <= len(password) <= 128:
+        raise ValueError("请填写有效邮箱和 12～128 位密码")
+    password_hash = PASSWORDS.hash(password)
+    with db() as conn:
+        # Serialize initializers and public registrations in the same transaction.
+        conn.execute("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE")
+        if conn.execute("SELECT 1 FROM users WHERE role='admin' LIMIT 1").fetchone():
+            raise ValueError("已有管理员，拒绝重复初始化")
+        if conn.execute("SELECT 1 FROM users WHERE email=%s", (email,)).fetchone():
+            raise ValueError("此邮箱已有账号，请使用未注册的管理员邮箱；不会自动提升现有账号权限")
+        user_id = uuid.uuid4().hex
+        conn.execute("""INSERT INTO users(id,email,password_hash,team_id,role,status,approved_at)
+            VALUES (%s,%s,%s,'bootstrap','admin','active',now())""",
+                     (user_id, email, password_hash))
+        audit(conn, user_id, "bootstrap_admin", "user", user_id)
+    return user_id
 
 
 @router.post("/login")

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>导出广告组</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <h1>广告组导出</h1>
+    <p class="hint">请先打开“竞价推广 → 标准投 → 广告组”页面。</p>
+    <section class="status-card">
+      <div><span>已采集</span><strong id="count">0</strong><span>条</span></div>
+      <p id="status">正在检查当前页面…</p>
+    </section>
+    <button id="start" class="primary">接口直采全部并导出 Excel</button>
+    <button id="current">仅采集当前页</button>
+    <button id="export" disabled>导出已采集数据</button>
+    <button id="diagnostics">导出分页诊断信息</button>
+    <button id="clear" class="text-button">清空已采集数据</button>
+    <p id="error" class="error" hidden></p>
+    <p class="privacy">工具只读取当前页面中的广告组名称和 ID，不保存账号密码。</p>
+  </main>
+  <script src="xlsx.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "小红书聚光广告组导出",
+  "version": "2.0.0",
+  "description": "从聚光竞价推广-标准投-广告组页面采集广告组名称和广告组ID，并导出Excel。",
+  "permissions": [
+    "activeTab",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://ad.xiaohongshu.com/*"
+  ],
+  "action": {
+    "default_title": "导出广告组",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://ad.xiaohongshu.com/*"
+      ],
+      "js": [
+        "hook.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://ad.xiaohongshu.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "background": {
+    "service_worker": "workbench-worker.js"
+  }
+}

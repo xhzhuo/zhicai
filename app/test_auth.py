@@ -40,8 +40,7 @@ class MultiuserFlowTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIn("register-form", response.text)
             self.assertEqual(admin.get("/api/accounts").status_code, 401)
-            created = admin.post("/api/auth/register", json={"email": "admin@perform.net", "password": PASSWORD})
-            self.assertEqual(created.status_code, 200, created.text)
+            auth.create_initial_admin("admin@perform.net", PASSWORD)
             logged = admin.post("/api/auth/login", json={"email": "admin@perform.net", "password": PASSWORD})
             self.assertEqual(logged.status_code, 200, logged.text)
             csrf = logged.json()["csrfToken"]

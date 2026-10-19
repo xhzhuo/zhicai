@@ -10,6 +10,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import uuid
 import time
 from datetime import date, datetime
@@ -31,7 +32,10 @@ from .credentials import CredentialStore, CredentialStorageError
 from .access import assert_loopback_request
 from .requirements import router as requirements_router, init_db as init_requirements_db
 from .xhs_notes import NoteMetadata, VisibleBrowserFallback, build_session, download_image, fetch_note_http
+from .industry_presets import router as industry_presets_router
 from . import auth
+from .task_control import TaskControl
+from . import platform_collectors
 
 
 ROOT = Path(__file__).resolve().parent
@@ -48,6 +52,8 @@ SERVICES = {
     "lingxi": {"name": "灵犀", "url": "https://idea.xiaohongshu.com/"},
 }
 TOOLS = {
+    "adgroups": {"name": "聚光广告组信息导出", "service": "jug", "format": "xlsx"},
+    "plaza": {"name": "合作广场笔记采集", "service": "jug", "format": "xlsx"},
     "recommend": {"name": "关键词推荐", "service": "jug", "format": "csv"},
     "combined": {"name": "推荐词每日搜索量", "service": "jug", "format": "csv"},
     "bubble": {"name": "行业气泡图数据", "service": "lingxi", "format": "xlsx"},
@@ -67,6 +73,7 @@ class AuthenticationError(RuntimeError):
 app = FastAPI(title="智采 · 数据获取工作台", docs_url=None, redoc_url=None)
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 app.include_router(requirements_router)
+app.include_router(industry_presets_router)
 app.include_router(auth.router)
 app.include_router(auth.admin_router)
 
@@ -94,7 +101,38 @@ context_headless: dict[str, bool] = {}
 browsers: dict[str, Browser] = {}
 locks = {key: asyncio.Lock() for key in SERVICES}
 notes_lock = asyncio.Lock()
-jobs: dict[str, asyncio.Task] = {}
+task_control = TaskControl(
+    capacity=int(os.environ.get("ZHICAI_MAX_TASKS", "4")),
+    per_user=int(os.environ.get("ZHICAI_MAX_USER_TASKS", "2")),
+    submissions=int(os.environ.get("ZHICAI_SUBMISSIONS_PER_MINUTE", "3")),
+    timeout=int(os.environ.get("ZHICAI_TASK_TIMEOUT_SECONDS", "900")),
+    queue_timeout=int(os.environ.get("ZHICAI_QUEUE_TIMEOUT_SECONDS", "1800")),
+)
+jobs = task_control.tasks
+MIN_FREE_BYTES = int(os.environ.get("ZHICAI_MIN_FREE_MB", "1024")) * 1024 * 1024
+MAX_OUTPUT_BYTES = int(os.environ.get("ZHICAI_MAX_OUTPUT_MB", "200")) * 1024 * 1024
+
+
+def check_disk_space() -> None:
+    if shutil.disk_usage(DATA).free < MIN_FREE_BYTES:
+        raise HTTPException(503, "存储空间不足，暂不接受新任务，请联系管理员")
+
+
+def finish_interrupted_run(run_id: str, reason: str) -> None:
+    run = read_run(run_id)
+    if any(failure.get("error") == reason for failure in run.get("failures", [])):
+        return
+    run["status"] = "partial" if run.get("rows") and run["tool"] != "notes" else "failed"
+    run.setdefault("failures", []).append({"item": "任务", "error": reason})
+    run["ended"] = now()
+    save_run(run)
+
+
+def submit_run(run: dict[str, Any]) -> None:
+    check_disk_space()
+    task_control.submit(run["id"], run["ownerUserId"], lambda: save_run(run),
+                        lambda: execute(run["id"]),
+                        lambda reason: finish_interrupted_run(run["id"], reason))
 
 
 class RunInput(BaseModel):
@@ -210,6 +248,10 @@ def parse_lines(value: Any, label: str, limit: int = 30) -> list[str]:
 def validate_params(tool: str, raw: dict[str, Any]) -> dict[str, Any]:
     if tool not in TOOLS:
         raise ValueError("未知工具")
+    if tool == "adgroups":
+        return {"pageUrl": platform_collectors.platform_url(raw.get("pageUrl"))}
+    if tool == "plaza":
+        raise ValueError("合作广场工具请通过筛选文件上传提交")
     if tool == "notes":
         items = raw.get("items")
         if not isinstance(items, list) or not 1 <= len(items) <= 200:
@@ -431,8 +473,12 @@ def bubble_rows(data: dict[str, Any], yindex: str, tax: dict[str, str], size: st
 
 
 async def execute(run_id: str) -> None:
+    check_disk_space()
     run = read_run(run_id)
     tool, params = run["tool"], run["params"]
+    if tool in {"adgroups", "plaza"}:
+        await execute_platform_collection(run)
+        return
     if tool == "notes":
         async with notes_lock:
             await execute_notes(run)
@@ -492,7 +538,98 @@ async def execute(run_id: str) -> None:
     finally:
         active_account.reset(context_token)
         run["ended"] = now(); save_run(run)
-        jobs.pop(run_id, None)
+        if auth.server_mode():
+            await close_account_context(run.get("accountId") or service)
+
+
+async def execute_platform_collection(run: dict[str, Any]) -> None:
+    account_id = run["accountId"]
+    token = active_account.set(account_id)
+    folder = RUNS / run["id"]
+    folder.mkdir(exist_ok=True)
+    try:
+        async with locks["jug"]:
+            run["status"] = "running"
+            run["stage"] = "准备聚光连接"
+            save_run(run)
+            page = await ensure_page("jug", headless=True, navigate=False)
+            cookies = await page.context.cookies()
+            # Release the old browser before creating the one collection browser.
+            await close_account_context(account_id)
+            await platform_collectors.collect(run, cookies, folder, save_run, MAX_OUTPUT_BYTES)
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        run["status"] = "failed"
+        run["failures"].append({"item": "任务", "error": str(exc)})
+    finally:
+        active_account.reset(token)
+        await close_account_context(account_id)
+        run["ended"] = now()
+        save_run(run)
+
+
+def enqueue_platform_collection(user, account_id, tool, params, content=None):
+    account = account_get(account_id or "jug")
+    if auth.server_mode() and account.get("teamId") != user["team_id"]:
+        raise HTTPException(403, "只能使用本团队的平台账号")
+    if account["service"] != "jug" or account["disabled"]:
+        raise HTTPException(422, "请选择启用的聚光账号")
+    check_disk_space()
+    task_control.check(user["id"])
+    run_id = uuid.uuid4().hex
+    folder = RUNS / run_id
+    folder.mkdir()
+    if content is not None:
+        (folder / "筛选条件.xlsx").write_bytes(content)
+    run = {"id":run_id, "tool":tool, "params":params, "created":now(), "ended":None,
+           "status":"queued", "processed":0, "total":len(params.get("tasks", [])) or 1,
+           "columns":[], "rows":[], "sheets":[], "failures":[], "accountId":account["id"],
+           "accountAlias":account["alias"], "ownerUserId":user["id"], "teamId":user["team_id"]}
+    try:
+        submit_run(run)
+    except BaseException:
+        (folder / "筛选条件.xlsx").unlink(missing_ok=True)
+        folder.rmdir()
+        raise
+    return run_id
+
+
+@app.get("/api/plaza/template")
+def plaza_template(request: Request):
+    auth.require_tool(request, "plaza")
+    return FileResponse(platform_collectors.ASSETS / "plaza-template.xlsx",
+                        filename="zhicai_plaza_template.xlsx")
+
+
+async def read_plaza_upload(file):
+    if not str(file.filename or "").lower().endswith(".xlsx"):
+        raise HTTPException(422, "仅支持 .xlsx 筛选条件文件")
+    content = await file.read(20 * 1024 * 1024 + 1)
+    try:
+        tasks = platform_collectors.read_tasks(content)
+    except (ValueError, TypeError, OverflowError) as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return content, tasks
+
+
+@app.post("/api/plaza/inspect")
+async def inspect_plaza(request: Request, file: UploadFile = File(...)):
+    assert_local(request)
+    auth.require_tool(request, "plaza")
+    _, tasks = await read_plaza_upload(file)
+    return {"taskCount":len(tasks), "tasks":tasks}
+
+
+@app.post("/api/plaza/runs")
+async def create_plaza_run(request: Request, file: UploadFile = File(...),
+                           account_id: str = Form(...), collect_comments: bool = Form(False)):
+    assert_local(request)
+    user = auth.require_tool(request, "plaza")
+    content, tasks = await read_plaza_upload(file)
+    params = {"tasks":tasks, "collectComments":collect_comments,
+              "pageUrl":"https://ad.xiaohongshu.com/microapp/creativity/ugc"}
+    return {"id":enqueue_platform_collection(user, account_id, "plaza", params, content)}
 
 
 def assert_local(request: Request) -> None:
@@ -506,7 +643,8 @@ async def execute_notes(run: dict[str, Any]) -> None:
     run["total"] = len(items)
     run["columns"] = ["笔记id", "笔记标题", "KOL名称", "笔记内容", "封面链接", "笔记链接",
                       "下载状态", "下载文件", "错误信息", "封面图片"]
-    covers: list[tuple[int, bytes]] = []
+    covers: list[tuple[int, Path]] = []
+    output_bytes = 0
     folder = RUNS / run["id"]
     cover_folder = folder / "封面"
     browser: VisibleBrowserFallback | None = None
@@ -521,6 +659,7 @@ async def execute_notes(run: dict[str, Any]) -> None:
         save_run(run)
 
     async def finish_item(index, item, metadata, page_error, deadline):
+        nonlocal output_bytes
         image_data = None
         cover_url = download_file = image_error = ""
         try:
@@ -539,14 +678,20 @@ async def execute_notes(run: dict[str, Any]) -> None:
                                 asyncio.to_thread(download), timeout=max(.01, deadline-time.monotonic()))
                             stem = re.sub(r'[^\w.-]+', '_', item["id"]).strip(' ._')[:90] or f"note_{index:03d}"
                             filename = f"{index:03d}_{stem}{extension}"
-                            (cover_folder / filename).write_bytes(image_data)
+                            check_disk_space()
+                            if output_bytes + len(image_data) > MAX_OUTPUT_BYTES:
+                                raise ValueError("本次任务封面总量超过限制")
+                            image_path = cover_folder / filename
+                            image_path.write_bytes(image_data)
+                            output_bytes += len(image_data)
                             download_file = f"封面/{filename}"
                             cover_url = candidate
-                            covers.append((index + 1, image_data))
+                            covers.append((index + 1, image_path))
                             break
                         except asyncio.TimeoutError:
                             image_error = "单条处理超过 45 秒"
                         except Exception as exc:
+                            image_data = None
                             image_error = str(exc)
                     if image_data:
                         break
@@ -588,7 +733,7 @@ async def execute_notes(run: dict[str, Any]) -> None:
                             progress(f"加载页面 · {index}/{len(items)}")
                             try:
                                 metadata = await asyncio.wait_for(
-                                    asyncio.to_thread(fetch_note_http, session, item["url"]), timeout=10)
+                                    asyncio.to_thread(fetch_note_http, session, item["url"], time.monotonic() + 8), timeout=10)
                             except Exception as exc:
                                 page_error = str(exc)
                         if prefer_browser or metadata.score() < 4:
@@ -613,6 +758,9 @@ async def execute_notes(run: dict[str, Any]) -> None:
                 run["rows"].append([item["id"], "", "", "", "", item["url"],
                                     "格式有效（未联网）", "", "", ""])
             run["processed"] = len(items)
+        if browser is not None:
+            await browser.close()
+            browser = None
         progress("生成文件")
         run["coverCount"] = len(covers)
         run["status"] = ("complete" if not run["failures"] else
@@ -627,17 +775,18 @@ async def execute_notes(run: dict[str, Any]) -> None:
         sheet.column_dimensions["C"].width = 20; sheet.column_dimensions["D"].width = 55
         sheet.column_dimensions["E"].width = 48; sheet.column_dimensions["F"].width = 48
         sheet.column_dimensions["H"].width = 32; sheet.column_dimensions["I"].width = 48
-        for row_index, image_data in covers:
+        preview_folder = folder / "previews"
+        preview_folder.mkdir(exist_ok=True)
+        for row_index, image_path in covers:
             try:
-                with PILImage.open(io.BytesIO(image_data)) as source:
-                    if (source.format or "").upper() in {"JPEG", "PNG", "GIF"}:
-                        preview_data = io.BytesIO(image_data)
-                    else:
-                        preview_data = io.BytesIO()
-                        mode = "RGBA" if source.mode in {"RGBA", "LA"} or "transparency" in source.info else "RGB"
-                        source.convert(mode).save(preview_data, format="PNG")
-                        preview_data.seek(0)
-                picture = ExcelImage(preview_data)
+                preview_path = preview_folder / f"{row_index}.png"
+                with PILImage.open(image_path) as source:
+                    if source.width * source.height > 16_000_000:
+                        raise ValueError("图片像素过大，封面原图保留但不嵌入预览")
+                    source.thumbnail((600, 600))
+                    mode = "RGBA" if source.mode in {"RGBA", "LA"} or "transparency" in source.info else "RGB"
+                    source.convert(mode).save(preview_path, format="PNG")
+                picture = ExcelImage(str(preview_path))
                 original_width, original_height = picture.width, picture.height
                 picture.width = 150
                 picture.height = min(220, int(original_height * 150 / original_width))
@@ -667,6 +816,9 @@ async def execute_notes(run: dict[str, Any]) -> None:
         run["status"] = "failed"; run["failures"].append({"item": "任务", "error": str(exc)[:500]})
     finally:
         if pending:
+            for task in pending:
+                if not task.done():
+                    task.cancel()
             await asyncio.gather(*pending, return_exceptions=True)
         session.close()
         if browser is not None:
@@ -677,7 +829,7 @@ async def execute_notes(run: dict[str, Any]) -> None:
                 if run["status"] == "complete":
                     run["status"] = "partial"
         run["stage"] = "已结束"
-        run["ended"] = run.get("ended") or now(); save_run(run); jobs.pop(run["id"], None)
+        run["ended"] = run.get("ended") or now(); save_run(run)
 
 
 def inspect_note_workbook(content: bytes) -> list[dict[str, Any]]:
@@ -735,7 +887,7 @@ def enqueue_note_run(user: dict[str, Any], params: dict[str, Any]) -> str:
            "status": "queued", "processed": 0, "total": total,
            "columns": [], "rows": [], "sheets": [], "failures": [], "accountId": "", "accountAlias": "无需账号",
            "ownerUserId": user["id"], "teamId": user["team_id"]}
-    save_run(run); jobs[run_id] = asyncio.create_task(execute(run_id))
+    submit_run(run)
     return run_id
 
 
@@ -767,6 +919,9 @@ def index(request: Request) -> Response:
     source = source.replace("render();\n</script>", f"</script>\n<script src=\"/static/integration.js?v={script_version}\"></script>\n<script src=\"/static/requirements.js?v={requirements_script_version}\"></script>")
     if auth.server_mode():
         source = source.replace("</body>", f'<script src="/static/multiuser.js?v={multiuser_script_version}"></script>\n</body>')
+    if auth.server_mode():
+        version = (ROOT / "static" / "industry-presets.js").stat().st_mtime_ns
+        source = source.replace("</body>", f'<script src="/static/industry-presets.js?v={version}"></script></body>')
     return Response(source, media_type="text/html; charset=utf-8")
 
 
@@ -899,46 +1054,51 @@ def parse_cookie_import(content: str, service: str) -> tuple[list[dict[str, Any]
 
 @app.post("/api/accounts/{account_id}/cookie")
 async def import_cookie(account_id: str, payload: CookieImport, request: Request) -> dict[str, str]:
-    assert_local(request)
-    account = account_get(account_id)
-    auth.require_account(request, account, edit=True)
-    if account["disabled"]: raise HTTPException(409, "账号已停用")
-    try:
-        cookies, origins = parse_cookie_import(payload.content, account["service"])
-    except (ValueError, TypeError, json.JSONDecodeError) as exc:
-        raise HTTPException(422, str(exc)) from exc
-    if os.environ.get("ZHICAI_DEPLOYMENT", "local") == "server" and origins:
-        raise HTTPException(422, "服务器模式当前只支持 Cookie 文本")
-    try:
-        CREDENTIALS.check_ready()
-    except CredentialStorageError as exc:
-        raise HTTPException(503, str(exc)) from exc
-    token = active_account.set(account_id)
-    try:
-        page = await ensure_page(account["service"], headless=True, navigate=False)
-        context = contexts[account_id]
-        await context.add_cookies(cookies)
-        if origins:
-            await page.goto(SERVICES[account["service"]]["url"], wait_until="domcontentloaded", timeout=30000)
-            if not page.url.startswith(SERVICES[account["service"]]["url"].rstrip("/")):
-                raise ValueError("导入 Cookie 后仍未进入目标服务，无法写入该服务的本地状态")
-            for origin in origins:
-                values = origin.get("localStorage", [])
-                if not isinstance(values, list): raise ValueError("localStorage 格式无效")
-                await page.evaluate("items => { for (const item of items) localStorage.setItem(item.name, item.value); }", values)
-            await page.reload(wait_until="domcontentloaded", timeout=30000)
-    except Exception as exc:
-        raise HTTPException(503, f"会话导入失败：{exc}") from exc
-    finally:
-        active_account.reset(token)
-    try:
-        CREDENTIALS.save(account_id, payload.content)
-    except CredentialStorageError as exc:
-        raise HTTPException(503, f"Cookie 未能安全保存：{exc}") from exc
-    saved_at = now()
-    account_modify(account_id, method="cookie", cookieConfigured=True, cookieSavedAt=saved_at,
-                   status="unverified", statusReason=None, verifiedAt=None)
-    return {"message": "Cookie 已保存到该账号的后台连接；请验证连接。", "cookieSavedAt": saved_at}
+    if task_control.run_lock.locked():
+        raise HTTPException(429, "当前有采集或账号连接操作，请稍后再试", headers={"Retry-After": "30"})
+    async with task_control.run_lock:
+        assert_local(request)
+        account = account_get(account_id)
+        auth.require_account(request, account, edit=True)
+        if account["disabled"]: raise HTTPException(409, "账号已停用")
+        try:
+            cookies, origins = parse_cookie_import(payload.content, account["service"])
+        except (ValueError, TypeError, json.JSONDecodeError) as exc:
+            raise HTTPException(422, str(exc)) from exc
+        if os.environ.get("ZHICAI_DEPLOYMENT", "local") == "server" and origins:
+            raise HTTPException(422, "服务器模式当前只支持 Cookie 文本")
+        try:
+            CREDENTIALS.check_ready()
+        except CredentialStorageError as exc:
+            raise HTTPException(503, str(exc)) from exc
+        token = active_account.set(account_id)
+        try:
+            page = await ensure_page(account["service"], headless=True, navigate=False)
+            context = contexts[account_id]
+            await context.add_cookies(cookies)
+            if origins:
+                await page.goto(SERVICES[account["service"]]["url"], wait_until="domcontentloaded", timeout=30000)
+                if not page.url.startswith(SERVICES[account["service"]]["url"].rstrip("/")):
+                    raise ValueError("导入 Cookie 后仍未进入目标服务，无法写入该服务的本地状态")
+                for origin in origins:
+                    values = origin.get("localStorage", [])
+                    if not isinstance(values, list): raise ValueError("localStorage 格式无效")
+                    await page.evaluate("items => { for (const item of items) localStorage.setItem(item.name, item.value); }", values)
+                await page.reload(wait_until="domcontentloaded", timeout=30000)
+        except Exception as exc:
+            raise HTTPException(503, f"会话导入失败：{exc}") from exc
+        finally:
+            active_account.reset(token)
+            if auth.server_mode():
+                await close_account_context(account_id)
+        try:
+            CREDENTIALS.save(account_id, payload.content)
+        except CredentialStorageError as exc:
+            raise HTTPException(503, f"Cookie 未能安全保存：{exc}") from exc
+        saved_at = now()
+        account_modify(account_id, method="cookie", cookieConfigured=True, cookieSavedAt=saved_at,
+                       status="unverified", statusReason=None, verifiedAt=None)
+        return {"message": "Cookie 已保存到该账号的后台连接；请验证连接。", "cookieSavedAt": saved_at}
 
 
 @app.post("/api/accounts/{account_id}/cookie/reveal")
@@ -972,32 +1132,37 @@ async def reveal_cookie(account_id: str, request: Request, response: Response) -
 
 @app.post("/api/accounts/{account_id}/verify")
 async def verify_account(account_id: str, request: Request) -> dict[str, str]:
-    assert_local(request)
-    account = account_get(account_id)
-    auth.require_account(request, account, edit=True)
-    if account["disabled"]: raise HTTPException(409, "账号已停用")
-    service = account["service"]
-    token = active_account.set(account_id)
-    try:
-        async with locks[service]:
-            if service == "jug":
-                await recommend("品牌", False)
-            else:
-                await bubble({"code": "dd9c407f69b3470ea2bed33c7c007fa6", "name": "母婴奶粉"}, "readNum",
-                             {"start": date.today().replace(day=1).isoformat(), "end": date.today().isoformat(),
-                              "timePartition": 1, "regionCodes": [], "dimensionType": "1", "xindex": "1",
-                              "sizeIndex": "noteNum", "brandIdList": [], "spuIdList": [], "seriesIdList": []})
-    except AuthenticationError as exc:
-        account_modify(account_id, status="expired", statusReason="http_401")
-        raise HTTPException(503, f"连接验证失败：{exc}") from exc
-    except Exception as exc:
-        account_modify(account_id, status="unverified", statusReason="verification_inconclusive")
-        raise HTTPException(503, f"连接未能验证：{exc}；不能据此判断 Cookie 已过期") from exc
-    finally:
-        active_account.reset(token)
-    verified = now()
-    account_modify(account_id, status="verified", statusReason=None, verifiedAt=verified)
-    return {"message": "平台接口返回有效数据，连接可用", "verifiedAt": verified}
+    if task_control.run_lock.locked():
+        raise HTTPException(429, "当前有采集或账号连接操作，请稍后再试", headers={"Retry-After": "30"})
+    async with task_control.run_lock:
+        assert_local(request)
+        account = account_get(account_id)
+        auth.require_account(request, account, edit=True)
+        if account["disabled"]: raise HTTPException(409, "账号已停用")
+        service = account["service"]
+        token = active_account.set(account_id)
+        try:
+            async with locks[service]:
+                if service == "jug":
+                    await recommend("品牌", False)
+                else:
+                    await bubble({"code": "dd9c407f69b3470ea2bed33c7c007fa6", "name": "母婴奶粉"}, "readNum",
+                                 {"start": date.today().replace(day=1).isoformat(), "end": date.today().isoformat(),
+                                  "timePartition": 1, "regionCodes": [], "dimensionType": "1", "xindex": "1",
+                                  "sizeIndex": "noteNum", "brandIdList": [], "spuIdList": [], "seriesIdList": []})
+        except AuthenticationError as exc:
+            account_modify(account_id, status="expired", statusReason="http_401")
+            raise HTTPException(503, f"连接验证失败：{exc}") from exc
+        except Exception as exc:
+            account_modify(account_id, status="unverified", statusReason="verification_inconclusive")
+            raise HTTPException(503, f"连接未能验证：{exc}；不能据此判断 Cookie 已过期") from exc
+        finally:
+            active_account.reset(token)
+            if auth.server_mode():
+                await close_account_context(account_id)
+        verified = now()
+        account_modify(account_id, status="verified", statusReason=None, verifiedAt=verified)
+        return {"message": "平台接口返回有效数据，连接可用", "verifiedAt": verified}
 
 
 @app.post("/api/services/{service}/login")
@@ -1037,6 +1202,8 @@ async def verify(service: str, request: Request) -> dict[str, str]:
 async def inspect_notes_file(request: Request, file: UploadFile = File(...)) -> dict[str, Any]:
     assert_local(request)
     user = auth.require_tool(request, "notes")
+    task_control.check(user["id"])
+    check_disk_space()
     if Path(file.filename or "").suffix.lower() != ".xlsx":
         raise HTTPException(422, "笔记数据仅支持上传 .xlsx 文件")
     content = await file.read(20 * 1024 * 1024 + 1)
@@ -1059,6 +1226,8 @@ async def create_notes_run(request: Request, file: UploadFile = File(...),
                            limit: int | None = Form(None)) -> dict[str, str]:
     assert_local(request)
     user = auth.require_tool(request, "notes")
+    task_control.check(user["id"])
+    check_disk_space()
     if Path(file.filename or "").suffix.lower() != ".xlsx":
         raise HTTPException(422, "笔记数据仅支持上传 .xlsx 文件")
     content = await file.read(20 * 1024 * 1024 + 1)
@@ -1081,6 +1250,8 @@ async def create_run(payload: RunInput, request: Request) -> dict[str, str]:
     except (ValueError, TypeError) as exc:
         raise HTTPException(422, str(exc)) from exc
     tool = payload.tool
+    if tool == "adgroups":
+        return {"id":enqueue_platform_collection(user, payload.accountId, tool, params)}
     if tool == "notes":
         return {"id": enqueue_note_run(user, params)}
     service = TOOLS[tool]["service"]
@@ -1097,9 +1268,20 @@ async def create_run(payload: RunInput, request: Request) -> dict[str, str]:
            "status": "queued", "processed": 0, "total": total, "columns": columns,
            "rows": [], "sheets": [], "failures": [], "accountId": account["id"], "accountAlias": account["alias"],
            "ownerUserId": user["id"], "teamId": user["team_id"]}
-    save_run(run)
-    jobs[run_id] = asyncio.create_task(execute(run_id))
+    submit_run(run)
     return {"id": run_id}
+
+
+@app.post("/api/runs/{run_id}/cancel")
+async def cancel_run(run_id: str, request: Request) -> dict[str, str]:
+    assert_local(request)
+    run = read_run(run_id)
+    user = auth.user_from_request(request)
+    if auth.server_mode() and run.get("ownerUserId") != user["id"] and user["role"] != "admin":
+        raise HTTPException(404, "找不到运行记录")
+    if not await task_control.cancel(run_id):
+        raise HTTPException(409, "任务已结束，无法取消")
+    return {"message": "任务已取消"}
 
 
 @app.get("/api/runs")
@@ -1112,9 +1294,9 @@ def list_runs(request: Request) -> list[dict[str, Any]]:
             if auth.server_mode() and run.get("ownerUserId") != user["id"] and user["role"] != "admin":
                 continue
             items.append({key: run[key] for key in ("id", "tool", "created", "ended", "status", "processed", "total")}
-                         | {"rowCount": len(run["rows"]), "failureCount": len(run["failures"]),
+                         | {"rowCount": run.get("rowCount", len(run["rows"])), "failureCount": len(run["failures"]),
                             "accountAlias": run.get("accountAlias", ""),
-                            "coverCount": run.get("coverCount", 0)})
+                            "coverCount": run.get("coverCount", 0), "outputReady": bool(run.get("outputFile"))})
         except (OSError, ValueError, KeyError):
             continue
     return sorted(items, key=lambda x: x["created"], reverse=True)[:200]
@@ -1128,10 +1310,10 @@ def get_run(run_id: str, request: Request) -> dict[str, Any]:
         raise HTTPException(404, "找不到运行记录")
     # Bubble sheets have different Y-axis headers; preview one sheet without mixing meanings.
     preview = run["sheets"][0] if run["tool"] == "bubble" and run["sheets"] else None
-    return {**run, "columns": preview["columns"] if preview else run["columns"],
+    return {**run, "outputReady": bool(run.get("outputFile")) and run["status"] not in ("queued", "running"), "columns": preview["columns"] if preview else run["columns"],
             "rows": (preview["rows"] if preview else run["rows"])[:30],
-            "sheets": [{"name": s["name"], "count": len(s["rows"])} for s in run["sheets"]],
-            "rowCount": len(run["rows"])}
+            "sheets": [{"name": s["name"], "count": s.get("count", len(s["rows"]))} for s in run["sheets"]],
+            "rowCount": run.get("rowCount", len(run["rows"]))}
 
 
 @app.get("/api/runs/{run_id}/download")
@@ -1143,11 +1325,11 @@ def download(run_id: str, request: Request) -> Response:
         raise HTTPException(404, "找不到运行记录")
     if run["status"] in ("queued", "running"):
         raise HTTPException(409, "任务仍在运行，完成后可下载结果")
-    if run["tool"] == "notes":
+    if run["tool"] in {"notes", "adgroups", "plaza"}:
         output = Path(run.get("outputFile", ""))
         if not output.is_file() or output.parent.resolve() != (RUNS / run_id).resolve():
             raise HTTPException(404, "结果文件不存在")
-        return FileResponse(output, filename=f"zhicai_notes_{run_id[:8]}.xlsx",
+        return FileResponse(output, filename=f"zhicai_{run['tool']}_{run_id[:8]}.xlsx",
                             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     if not run["rows"]:
         raise HTTPException(404, "当前没有可下载的数据")
@@ -1188,7 +1370,7 @@ def download_note_assets(run_id: str, request: Request) -> Response:
 
 @app.on_event("shutdown")
 async def close_browser() -> None:
-    for task in list(jobs.values()): task.cancel()
+    await task_control.shutdown()
     for context in list(contexts.values()):
         try: await context.close()
         except Exception: pass
@@ -1197,6 +1379,8 @@ async def close_browser() -> None:
 
 @app.on_event("startup")
 def mark_interrupted_runs() -> None:
+    task_control.stopping = False
+    task_control.run_lock = asyncio.Lock()
     for path in RUNS.glob("*.json"):
         try:
             run = json.loads(path.read_text(encoding="utf-8"))

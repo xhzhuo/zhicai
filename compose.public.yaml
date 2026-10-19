@@ -4,6 +4,14 @@ services:
       ZHICAI_PUBLIC_ORIGIN: https://${ZHICAI_PUBLIC_IP:?Set the public IP}
 
   public_gateway:
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     image: public.ecr.aws/docker/library/caddy:2.11.6-alpine@sha256:d44355d3c2149dc580ce2cac735955d1c08d3d00882c30489c241aa51a5c10d9
     init: true
     network_mode: host

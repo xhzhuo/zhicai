@@ -1,8 +1,8 @@
 /* The v0.4 visual shell remains intact. This runtime replaces its demo data flow. */
 'use strict';
 
-const realTools = {keywords: 'recommend', trend: 'combined', industry: 'bubble', notes: 'notes'};
-const fromRealTool = {recommend: 'keywords', combined: 'trend', bubble: 'industry', notes: 'notes'};
+const realTools = {keywords: 'recommend', trend: 'combined', industry: 'bubble', notes: 'notes', adgroups:'adgroups', plaza:'plaza'};
+const fromRealTool = {recommend: 'keywords', combined: 'trend', bubble: 'industry', notes: 'notes', adgroups:'adgroups', plaza:'plaza'};
 let toolLocationImages = {};
 const toolLocationPaths = {
   keywords: '小红书 · 聚光｜具体页面路径待截图确认',
@@ -11,6 +11,7 @@ const toolLocationPaths = {
 };
 const realRuns = new Map();
 const realSelected = {};
+let plazaUploadFile = null, plazaTaskCount = 0;
 let notesUploadFile = null;
 let notesSheets = [];
 let notesSheetName = '';
@@ -85,6 +86,16 @@ tools.notes.input='上传包含笔记id、笔记链接两列的 Excel';
 tools.notes.output='笔记数据 Excel + 封面素材包';
 tools.notes.sample='';
 
+for(const [id,definition] of Object.entries({
+  adgroups:{title:'聚光广告组信息导出',desc:'采集标准投广告组信息，去重数量与页面总数一致后导出。',input:'聚光账号 + 广告组页面',output:'账号、广告组、广告组ID、状态、导出时间'},
+  plaza:{title:'合作广场笔记采集',desc:'按 Excel 筛选条件采集笔记，可选补采评论、情感分析与关键词词云。',input:'聚光账号 + 筛选条件 Excel',output:'笔记数据、采集记录及可选评论结果'}
+})){
+  tools[id]={...definition,platform:'xhs',source:'聚光',icon:'table',kind:'platform',unit:'任务',sample:'',columns:[]};
+  allTools.push(id);configs[id]=defaultConfig(id);services.jug.tools.push(id);
+}
+toolLocationPaths.adgroups='小红书聚光 → 竞价推广 → 标准投 → 广告组';
+toolLocationPaths.plaza='小红书聚光 → 合作广场';
+
 const oldRenderChrome = renderChrome;
 renderChrome = function () {
   oldRenderChrome();
@@ -115,7 +126,7 @@ renderCatalog = function () {
     <div class="between catalog-meta"><span>共 ${list.length} 个工具 <span class="muted">· ${platform==='all'?'所有平台':platforms[platform].name}</span></span><span>已接入 ${Object.keys(realTools).length} 个采集流程</span></div>
     <section class="catalog-grid">${list.map(id => { const t=tools[id],ready=!!realTools[id],allowed=ready&&(!window.ZHICAI_SERVER_MODE||can(id)); return `<article class="tool-card"><div class="between">${platformBadge(t.platform)}<span class="pill">${platforms[t.platform].name} · ${t.source}</span></div><h2>${t.title}</h2><p class="desc">${t.desc}</p><div class="tool-spec"><span>输入</span><span>${t.input}</span><span>输出</span><span title="${t.output}">${t.output}</span></div><div class="tool-card-foot"><span class="pill ${allowed?'green':'amber'}">${allowed?'实际工具':ready?'未授权':'尚未接入'}</span><button class="text-btn" data-open-tool="${id}" ${allowed?'':'disabled'}>${allowed?'配置采集':ready?'无访问权限':'暂无实际工具'}${I('chevron','i14')}</button></div></article>`; }).join('')}</section>
     ${!list.length?emptyView('没有匹配的工具','试试切换平台或清空搜索条件。','search'):''}
-    <div class="catalog-note">${I('info','i16')}<span>目前接入聚光关键词工具和灵犀气泡图工具。其他入口保留原布局，取得实际工具后才能运行。</span></div>${realFooter()}`;
+    <div class="catalog-note">${I('info','i16')}<span>已接入关键词、搜索量、行业气泡图、笔记封面与内容、广告组导出和合作广场笔记采集。</span></div>${realFooter()}`;
 };
 
 function accountListFor(id) { return accounts.filter(a => a.service === (id==='industry'?'lingxi':'jug')&&(!window.ZHICAI_SERVER_MODE||a.teamId===window.ZHICAI_ME?.teamId)); }
@@ -164,7 +175,12 @@ renderConfig = function () {
   if (!$('#config-body')) return;
   const id=currentTool, c=configs[id], account=connectionFor(id), busy=realRuns.get(realSelected[id])?.status==='running';
   let html=realAccountBox(id);
-  if(id==='notes'){
+  if(id==='adgroups'){
+    html+=realField('adgroups-url','广告组页面链接（可选）',`<input id="adgroups-url" type="url" value="${esc(c.pageUrl||'')}" placeholder="https://ad.xiaohongshu.com/...">`,'留空时尝试从聚光首页进入竞价推广 → 标准投 → 广告组；也可粘贴对应页面链接。数量校验通过后才生成 Excel。');
+  }else if(id==='plaza'){
+    html+=realField('plaza-file','筛选条件文件<span class="required">*</span>',`<a class="text-btn" href="/api/plaza/template">下载筛选条件模板</a><input id="plaza-file" type="file" accept=".xlsx"><div id="plaza-file-state" class="field-hint" role="status">${plazaTaskCount?`已读取 ${plazaTaskCount} 个启用任务`:'请按模板填写并上传 .xlsx 文件（不超过 20 MB）。'}</div>`);
+    html+=`<label class="flex"><input id="plaza-comments" type="checkbox" ${c.collectComments?'checked':''}>采集笔记评论</label><p class="field-hint">勾选后逐篇补采评论，并导出情感分析和关键词词云。单篇最多等待 90 秒，整项任务受服务器 15 分钟上限约束。建议先用少量笔记试跑；失败及未完成原因保留在采集记录中。</p>`;
+  }else if(id==='notes'){
     html+=realField('note-file','上传笔记文件<span class="required">*</span>',`<input id="note-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-describedby="note-file-help"><div id="note-file-help" class="field-hint">仅支持 .xlsx，文件不超过 20 MB；表头必须包含“笔记id”和“笔记链接”。每次最多处理 200 条有效记录。</div><div id="note-file-state" class="field-hint" role="status">${notesUploadFile?`已选择：${esc(notesUploadFile.name)}`:'请选择 Excel 文件。'}</div>`);
     const sheetOptions=notesSheets.map(sheet=>`<option value="${esc(sheet.name)}" ${sheet.name===notesSheetName?'selected':''} ${sheet.hasRequiredColumns?'':'disabled'}>${esc(sheet.name)}${sheet.hasRequiredColumns?'':'（缺少必需字段）'}</option>`);
     html+=realField('note-sheet','数据工作表',`<select id="note-sheet" ${!notesSheets.length?'disabled':''}>${sheetOptions.length?sheetOptions.join(''):'<option value="">上传文件后选择</option>'}</select>`,'选择包含“笔记id”和“笔记链接”两列的工作表。');
@@ -177,8 +193,8 @@ renderConfig = function () {
     if(id==='trend') html+=realField('date-start','查询日期<span class="required">*</span>',`<div class="dates"><input type="date" id="date-start" data-config="start" value="${esc(c.start)}" aria-label="开始日期"><span>至</span><input type="date" id="date-end" data-config="end" value="${esc(c.end)}" aria-label="结束日期"></div><div class="presets">${[7,14,30].map(n=>`<button data-days="${n}" class="${c.preset===n?'active':''}">近 ${n} 天</button>`).join('')}</div>`,'包含起止日期；先扩词，再查询每个推荐词的每日搜索量。');
     html+=`<div class="field"><label class="flex" style="font-size:11px;color:#53637c"><input id="only-contain" type="checkbox" ${c.onlyContainRoot?'checked':''}>推荐词必须包含对应词根</label></div>`;
   } else {
-    html+=realField('real-tax-list','行业与 code<span class="required">*</span>',realTaxRows(),'行业 code 可在灵犀「市场机会」页面的 compete 请求中查看 taxonomyCodes。');
-    html+=realField('date-start','查询日期<span class="required">*</span>',`<div class="dates"><input type="${bubbleDraft.timePartition===2?'month':'date'}" id="date-start" data-config="start" value="${esc(c.start.slice(0,bubbleDraft.timePartition===2?7:10))}" aria-label="开始日期"><span>至</span><input type="${bubbleDraft.timePartition===2?'month':'date'}" id="date-end" data-config="end" value="${esc(c.end.slice(0,bubbleDraft.timePartition===2?7:10))}" aria-label="结束日期"></div>`,'返回整个周期汇总值，不是每日明细。按月使用 YYYY-MM。');
+    html+=realField('real-tax-list','行业名称与行业code<span class="required">*</span>',realTaxRows());
+    html+=realField('date-start','查询日期<span class="required">*</span>',`<div class="dates"><input type="${bubbleDraft.timePartition===2?'month':'date'}" id="date-start" data-config="start" value="${esc(c.start.slice(0,bubbleDraft.timePartition===2?7:10))}" aria-label="开始日期"><span>至</span><input type="${bubbleDraft.timePartition===2?'month':'date'}" id="date-end" data-config="end" value="${esc(c.end.slice(0,bubbleDraft.timePartition===2?7:10))}" aria-label="结束日期"></div>`);
     html+=realField('partition','时间粒度',realSelect('partition',[[1,'按日'],[4,'按周'],[2,'按月']],bubbleDraft.timePartition));
     html+=realField('dimension','分析主体',realSelect('dimension',[['1','品牌'],['2','SPU'],['3','系列']],bubbleDraft.dimensionType));
     html+=realField('x-axis','X 轴',realSelect('x-axis',[['1','搜索量'],['impNum','曝光量'],['readNum','阅读量']],bubbleDraft.xindex));
@@ -186,7 +202,7 @@ renderConfig = function () {
     html+=realField('size-axis','气泡大小',realSelect('size-axis',[['noteNum','平均有曝光笔记数'],['noteIncreaseNum','新增笔记数']],bubbleDraft.sizeIndex));
     html+=`<details class="run-details"><summary>高级筛选（可留空）</summary>${[['regionCodes','地域 code，空白为全国'],['brandIdList','品牌 ID'],['spuIdList','SPU ID'],['seriesIdList','系列 ID']].map(([key,label])=>realField(key,label,`<input id="${key}" value="${esc(bubbleDraft[key])}" placeholder="多个值用逗号分隔">`)).join('')}</details>`;
   }
-  html+=`<div class="field"><div class="field-label"><span>交付内容</span><span class="pill">${id==='notes'?'Excel + ZIP':id==='industry'?'Excel':'CSV'}</span></div><div class="field-hint" style="border:1px solid var(--line);border-radius:6px;padding:9px 10px;background:#fafcff">${esc(tools[id].output)}<br>失败项保留原因，不填充模拟值。</div></div><div id="config-errors" class="form-errors hidden" role="alert"></div>`;
+  html+=`<div class="field"><div class="field-label"><span>交付内容</span><span class="pill">${id==='notes'?'Excel + ZIP':['industry','adgroups','plaza'].includes(id)?'Excel':'CSV'}</span></div><div class="field-hint" style="border:1px solid var(--line);border-radius:6px;padding:9px 10px;background:#fafcff">${esc(tools[id].output)}<br>失败项保留原因，不填充模拟值。</div></div><div id="config-errors" class="form-errors hidden" role="alert"></div>`;
   $('#config-body').innerHTML=html;
   refreshConfigMeta();
 };
@@ -197,13 +213,17 @@ refreshConfigMeta = function () {
   const count=id==='notes'?(notesUploadFile&&notesSheetName?1:0):id==='industry'?bubbleDraft.taxonomies.filter(x=>x.name&&x.code).length:inputItems(configs[id],id).valid.length;
   if($('#input-meta')) $('#input-meta').textContent=`已识别 ${count} 个词根`;
   $('#run-summary').textContent=id==='notes'?(count?'已读取 1 个 Excel 文件':'等待上传 .xlsx 文件'):id==='industry'?`${count} 个行业 · ${bubbleDraft.yindexList.length} 个 Y 轴指标 · Excel 文件`:`${count} 个词根 · CSV 文件`;
-  const blocked=!account||account.status==='disabled'||(id==='notes'&&(!notesUploadFile||!notesSheetName));
-  button.disabled=blocked||run?.status==='running';
+  const blocked=!account||account.status==='disabled'||(id==='notes'&&(!notesUploadFile||!notesSheetName))||(id==='plaza'&&(!plazaUploadFile||!plazaTaskCount));
+  if(id==='adgroups')$('#run-summary').textContent='采集全部广告组 · 数量校验 · Excel';
+  if(id==='plaza')$('#run-summary').textContent=`${plazaTaskCount} 个启用任务 · Excel`;
+  button.disabled=blocked||['queued','running'].includes(run?.status);
   button.innerHTML=run?.status==='running'?'<span class="spinner"></span> 正在采集':blocked?(id==='notes'?I('upload','i16')+'请先上传文件':I('lock','i16')+'账号已停用'):I('play','i16')+'开始采集';
 };
 
 function realError(message) { const box=$('#config-errors'); if(box){box.textContent=message;box.classList.remove('hidden');} toast(message,'alert'); }
 function collectRealParams(id) {
+  if(id==='adgroups')return {pageUrl:$('#adgroups-url').value};
+  if(id==='plaza')return {collectComments:$('#plaza-comments').checked};
   if(id==='notes'){const mode=$('#note-mode').value;return {sheetName:notesSheetName,mode,limit:mode==='trial'?Number($('#note-limit')?.value||3):null};}
   const c=configs[id];
   if(id!=='industry') {
@@ -227,7 +247,11 @@ async function realStart() {
     const params=collectRealParams(id);
     const button=$('#run-button'); button.disabled=true;
     let created;
-    if(id==='notes'){
+    if(id==='plaza'){
+      if(!plazaUploadFile||!plazaTaskCount)throw new Error('请先上传并检查筛选条件文件。');
+      const form=new FormData();form.append('file',plazaUploadFile,plazaUploadFile.name);form.append('account_id',account.id);form.append('collect_comments',String(params.collectComments));
+      created=await realUploadApi('/api/plaza/runs',form);
+    }else if(id==='notes'){
       if(!notesUploadFile)throw new Error('请先上传包含笔记id和笔记链接的 .xlsx 文件。');
       const form=new FormData();form.append('file',notesUploadFile,notesUploadFile.name);form.append('sheet_name',params.sheetName);form.append('mode',params.mode);if(params.limit!==null)form.append('limit',String(params.limit));
       created=await realUploadApi('/api/notes/runs',form);
@@ -260,9 +284,9 @@ renderResult = function () {
     const rows=run.rows||[];
     const pct=run.total?Math.min(100,Math.round(run.processed/run.total*100)):0;
     body=`<div class="notice"><span>任务 <span class="mono">${esc(run.id.slice(0,8))}</span> · ${esc(run.created.replace('T',' ').slice(0,19))}<br>来源：小红书 / ${esc(tools[currentTool].source)} · 结果来自实际平台接口</span></div>
-      ${busy?`<div class="run-progress"><div class="between"><span>${esc(run.stage||'正在采集')} · 已处理 ${run.processed} / ${run.total} 项</span></div>${run.counts?`<div class="field-hint">成功 ${run.counts.success} · 部分成功 ${run.counts.partial} · 失败 ${run.counts.failed}</div>`:''}<div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>`:''}
+      ${busy?`<div class="run-progress"><div class="between"><span>${esc(run.stage||'正在采集')} · 已处理 ${run.processed} / ${run.total} 项</span><button class="text-btn" data-real-cancel="${run.id}">取消任务</button></div>${run.counts?`<div class="field-hint">成功 ${run.counts.success} · 部分成功 ${run.counts.partial} · 失败 ${run.counts.failed}</div>`:''}<div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>`:''}
       <div class="run-info-line">${statusPill(run.status)}<span>数据 <strong>${number(run.rowCount)}</strong> 行</span><span class="${run.failures.length?'failed':''}">失败 ${run.failures.length} 项</span></div>
-      <div class="result-toolbar"><div><h3>数据明细</h3><small>${rows.length?(currentTool==='notes'?'预览前 30 行；Excel 保留每条笔记的状态和错误原因':'预览前 30 行，下载含所有成功结果'):'暂无结果'}</small></div><div class="flex wrap" style="gap:6px">${run.rowCount&&!busy?`<a class="btn primary" href="/api/runs/${run.id}/download">${I('download','i16')}${currentTool==='notes'?'下载结果 Excel':`下载${run.status==='partial'?'成功结果':'完整结果'}`}</a>${currentTool==='notes'&&run.coverCount?`<a class="btn" href="/api/runs/${run.id}/assets">${I('download','i16')}下载封面素材包（${run.coverCount}）</a>`:''}`:'<button class="btn" disabled>完成后下载</button>'}</div></div>
+      <div class="result-toolbar"><div><h3>数据明细</h3><small>${rows.length?(currentTool==='notes'?'预览前 30 行；Excel 保留每条笔记的状态和错误原因':'预览前 30 行，下载含所有成功结果'):'暂无结果'}</small></div><div class="flex wrap" style="gap:6px">${(run.rowCount||(['adgroups','plaza'].includes(currentTool)&&run.outputReady))&&!busy&&(!['adgroups','plaza'].includes(currentTool)||run.outputReady)?`<a class="btn primary" href="/api/runs/${run.id}/download">${I('download','i16')}${currentTool==='notes'?'下载结果 Excel':`下载${run.status==='partial'?'成功结果':'完整结果'}`}</a>${currentTool==='notes'&&run.coverCount?`<a class="btn" href="/api/runs/${run.id}/assets">${I('download','i16')}下载封面素材包（${run.coverCount}）</a>`:''}`:'<button class="btn" disabled>完成后下载</button>'}</div></div>
       ${rows.length?realTable(columns,rows):emptyView(busy?'正在等待数据':'暂无数据',busy?'完成第一批请求后会显示。':'请查看失败原因或调整查询条件。')}
       ${run.sheets.length?`<div class="table-caption">Excel 工作表：${run.sheets.map(s=>`${esc(s.name)}（${s.count} 行）`).join('、')}</div>`:`<div class="table-caption">显示 ${rows.length} / ${run.rowCount} 行 · 来自平台接口</div>`}
       ${run.failures.length?`<details class="run-details"><summary>失败明细（${run.failures.length} 项）</summary><ul>${run.failures.map(f=>`<li>${esc(f.item)}：${esc(f.error)}</li>`).join('')}</ul></details>`:''}
@@ -293,7 +317,7 @@ renderHistory = function () {
   ${f.period==='custom'?`<div class="history-custom"><label for="history-start">起止日期</label><input id="history-start" type="date" value="${esc(f.start)}"><span>至</span><input id="history-end" type="date" value="${esc(f.end)}"><small>可只填一端</small></div>`:''}
   <div class="history-filter-hint ${invalid?'error':''}">${I(invalid?'alert':'info','i14')}${invalid?'开始日期不能晚于结束日期。':'依据任务创建时间筛选，不是数据查询日期。'}</div></section>
   <section class="panel history-panel"><div class="history-head"><h2>我的任务 <span class="pill">${list.length}</span></h2><p>${active?'匹配 '+list.length+' / '+realHistory.length+' 条':'共 '+realHistory.length+' 条'}记录</p></div>
-  ${list.length?`<div class="history-table-scroll"><table class="data-table history-table"><thead><tr><th>平台</th><th>工具 / 任务</th><th>平台账号</th><th>创建时间</th><th>状态</th><th>处理结果</th><th>操作</th></tr></thead><tbody>${list.map(r=>`<tr><td><div class="flex">${platformBadge('xhs')}<span>小红书</span></div></td><td><div class="history-tool"><div><b>${esc(tools[fromRealTool[r.tool]].title)}</b><small>${esc(r.id.slice(0,8))}</small></div></div></td><td>${esc(r.accountAlias||'—')}</td><td class="history-date">${esc(r.created.replace('T',' ').slice(0,19))}</td><td>${statusPill(r.status)}</td><td>${r.rowCount} 行 / ${r.failureCount} 失败</td><td><div class="history-actions"><button class="text-btn" data-real-view="${r.id}">查看</button>${r.rowCount&&!['queued','running'].includes(r.status)?`<a class="text-btn" href="/api/runs/${r.id}/download">${I('download','i14')}下载</a>`:''}</div></td></tr>`).join('')}</tbody></table></div>`:emptyView(invalid?'请调整日期范围':realHistory.length?'没有匹配的运行记录':'还没有运行记录',invalid?'开始日期需要早于结束日期。':realHistory.length?'调整筛选条件。':'从工具中心开始采集。','clock')}</section>
+  ${list.length?`<div class="history-table-scroll"><table class="data-table history-table"><thead><tr><th>平台</th><th>工具 / 任务</th><th>平台账号</th><th>创建时间</th><th>状态</th><th>处理结果</th><th>操作</th></tr></thead><tbody>${list.map(r=>`<tr><td><div class="flex">${platformBadge('xhs')}<span>小红书</span></div></td><td><div class="history-tool"><div><b>${esc(tools[fromRealTool[r.tool]].title)}</b><small>${esc(r.id.slice(0,8))}</small></div></div></td><td>${esc(r.accountAlias||'—')}</td><td class="history-date">${esc(r.created.replace('T',' ').slice(0,19))}</td><td>${statusPill(r.status)}</td><td>${r.rowCount} 行 / ${r.failureCount} 失败</td><td><div class="history-actions"><button class="text-btn" data-real-view="${r.id}">查看</button>${(r.rowCount||r.outputReady)&&!['queued','running'].includes(r.status)&&(!['adgroups','plaza'].includes(r.tool)||r.outputReady)?`<a class="text-btn" href="/api/runs/${r.id}/download">${I('download','i14')}下载</a>`:''}</div></td></tr>`).join('')}</tbody></table></div>`:emptyView(invalid?'请调整日期范围':realHistory.length?'没有匹配的运行记录':'还没有运行记录',invalid?'开始日期需要早于结束日期。':realHistory.length?'调整筛选条件。':'从工具中心开始采集。','clock')}</section>
   <div class="catalog-note">${I('info','i16')}<span>运行记录保存在本机服务端，关闭网页后仍可找回已完成的结果。</span></div>${realFooter()}`;
 };
 
@@ -373,7 +397,7 @@ renderPermissions=function(){
 };
 
 clickActions.start=realStart;
-clickActions['reset-config']=()=>{if(realRuns.get(realSelected[currentTool])?.status==='running')return;configs[currentTool]=defaultConfig(currentTool);configs[currentTool].input='';configs[currentTool].onlyContainRoot=currentTool==='keywords';if(currentTool==='notes'){notesUploadFile=null;notesSheets=[];notesSheetName='';}bubbleDraft={taxonomies:[{name:'',code:''}],timePartition:1,dimensionType:'1',xindex:'1',yindexList:['readNum'],sizeIndex:'noteNum',regionCodes:'',brandIdList:'',spuIdList:'',seriesIdList:''};renderConfig();renderResult();};
+clickActions['reset-config']=()=>{if(currentTool==='plaza'){plazaUploadFile=null;plazaTaskCount=0;}if(realRuns.get(realSelected[currentTool])?.status==='running')return;configs[currentTool]=defaultConfig(currentTool);configs[currentTool].input='';configs[currentTool].onlyContainRoot=currentTool==='keywords';if(currentTool==='notes'){notesUploadFile=null;notesSheets=[];notesSheetName='';}bubbleDraft={taxonomies:[{name:'',code:''}],timePartition:1,dimensionType:'1',xindex:'1',yindexList:['readNum'],sizeIndex:'noteNum',regionCodes:'',brandIdList:'',spuIdList:'',seriesIdList:''};renderConfig();renderResult();};
 clickActions.template=()=>saveFile('﻿"词根"\r\n',`${tools[currentTool].title}_输入模板.csv`);
 clickActions['close-account']=closeAccountEditor;
 clickActions['add-account']=()=>openAccountEditor(null);
@@ -397,9 +421,24 @@ document.addEventListener('click',async event=>{
   const open=event.target.closest('[data-real-view]');
   if(open){try{const run=await realApi(`/api/runs/${open.dataset.realView}`);realRuns.set(run.id,run);openTool(fromRealTool[run.tool],run);if(['queued','running'].includes(run.status)&&!pollTimers.has(run.id))pollTimers.set(run.id,setInterval(()=>realPoll(run.id),1800));}catch(error){toast(error.message,'alert');}return;}
 });
-document.addEventListener('change',event=>{
+document.addEventListener('change',async event=>{
   const el=event.target;
   if(el.id==='note-file'){void inspectNotesUpload(el.files?.[0]||null);return;}
+  if(el.id==='adgroups-url'){configs.adgroups.pageUrl=el.value;return;}
+  if(el.id==='plaza-comments'){configs.plaza.collectComments=el.checked;return;}
+  if(el.id==='plaza-file'){
+    const file=el.files[0];plazaUploadFile=null;plazaTaskCount=0;refreshConfigMeta();
+    if(!file)return;
+    const state=$('#plaza-file-state');
+    try{
+      if(!/\.xlsx$/i.test(file.name)||file.size>20*1024*1024)throw new Error('请选择不超过 20 MB 的 .xlsx 文件。');
+      state.textContent='正在检查筛选条件…';const form=new FormData();form.append('file',file,file.name);
+      const result=await realUploadApi('/api/plaza/inspect',form);
+      if(el.files[0]!==file)return;
+      plazaUploadFile=file;plazaTaskCount=result.taskCount;state.textContent=`已读取 ${plazaTaskCount} 个启用任务`;
+    }catch(error){state.textContent=error.message;}
+    refreshConfigMeta();return;
+  }
   if(el.id==='note-sheet'){notesSheetName=el.value;refreshConfigMeta();return;}
   if(el.id==='note-mode'){$('#note-limit-field')?.classList.toggle('hidden',el.value!=='trial');refreshConfigMeta();return;}
   if(el.id==='real-method'&&accountDraft){accountDraft.method=el.value;$('#real-credential-mode').innerHTML=realCredentialMarkup(el.value,accountDraft);if(el.value==='cookie')void fillStoredCookie(accountDraft.id);return;}
@@ -433,3 +472,10 @@ $('#modal').addEventListener('close',()=>$('#modal').classList.remove('location-
     await fetchHistory();
   } catch(error) {$('#main').innerHTML=`<div class="panel empty"><h3>本机服务暂不可用</h3><p>${esc(error.message)}</p></div>`;}
 })();
+
+document.addEventListener('click',async event=>{
+  const button=event.target.closest('[data-real-cancel]');if(!button)return;
+  button.disabled=true;
+  try{await realApi(`/api/runs/${button.dataset.realCancel}/cancel`,{method:'POST',body:'{}'});await realPoll(button.dataset.realCancel);}
+  catch(error){toast(error.message,'alert');button.disabled=false;}
+});

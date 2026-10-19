@@ -1,0 +1,91 @@
+:root {
+  color-scheme: light;
+  font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  color: #202124;
+}
+
+body {
+  margin: 0;
+  width: 340px;
+  background: #f7f8fa;
+}
+
+main {
+  padding: 18px;
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 20px;
+}
+
+.hint,
+.privacy {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.status-card {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.status-card div {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.status-card strong {
+  color: #ff2442;
+  font-size: 28px;
+}
+
+#status {
+  margin: 6px 0 0;
+  color: #4b5563;
+  font-size: 12px;
+}
+
+button {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #202124;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+button.primary {
+  border-color: #ff2442;
+  background: #ff2442;
+  color: #fff;
+}
+
+button.text-button {
+  border: 0;
+  background: transparent;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.error {
+  padding: 9px;
+  border-radius: 6px;
+  background: #fff1f2;
+  color: #b42318;
+  font-size: 12px;
+  line-height: 1.5;
+}
