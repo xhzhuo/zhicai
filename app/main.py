@@ -56,7 +56,7 @@ SERVICES = {
     "lingxi": {"name": "灵犀", "url": "https://idea.xiaohongshu.com/"},
 }
 TOOLS = {
-    "adgroups": {"name": "聚光广告组信息导出", "service": "jug", "format": "xlsx"},
+    "adgroups": {"name": "广告组信息导出", "service": "jug", "format": "xlsx"},
     "plaza": {"name": "合作广场笔记采集", "service": "jug", "format": "xlsx"},
     "recommend": {"name": "关键词推荐", "service": "jug", "format": "csv"},
     "combined": {"name": "推荐词每日搜索量", "service": "jug", "format": "csv"},
@@ -1028,6 +1028,10 @@ def index(request: Request) -> Response:
     if auth.server_mode():
         version = (ROOT / "static" / "industry-presets.js").stat().st_mtime_ns
         source = source.replace("</body>", f'<script src="/static/industry-presets.js?v={version}"></script></body>')
+    help_style_version = (ROOT / "static" / "help.css").stat().st_mtime_ns
+    help_script_version = (ROOT / "static" / "help.js").stat().st_mtime_ns
+    source = source.replace("</head>", f'<link rel="stylesheet" href="/static/help.css?v={help_style_version}">\n</head>')
+    source = source.replace("</body>", f'<script src="/static/help.js?v={help_script_version}"></script>\n</body>')
     return Response(source, media_type="text/html; charset=utf-8")
 
 

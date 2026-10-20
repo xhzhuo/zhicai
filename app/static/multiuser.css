@@ -26,3 +26,52 @@
 .admin-tools label span small{display:block;margin:2px 0 0;font-size:9px;color:#9aa8bb}
 @media(max-width:1100px){.admin-tools{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:760px){.admin-team-body{align-items:stretch;flex-direction:column}.admin-team-body form{justify-content:stretch}.admin-team-body input{max-width:none}.admin-member-header{align-items:flex-start;flex-direction:column}.admin-tools{grid-template-columns:1fr}}
+
+/* Platform-grouped tool permissions: one aligned row per tool. */
+.permission-editor{min-width:0}
+.admin-member-header{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:16px}
+.admin-member-header h2{overflow-wrap:anywhere}
+.admin-member-header .admin-status-actions{margin:0}
+.admin-member-body>h3{margin:20px 0 12px}
+.admin-permissions-scroll{overflow-x:auto;border:1px solid #e4eaf2;border-radius:8px}
+.admin-permissions-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px;color:#536782}
+.permission-platform-col{width:100px}
+.permission-status-col{width:108px}
+.permission-access-col{width:100px}
+.admin-permissions-table thead{background:#f7f9fc}
+.admin-permissions-table th,.admin-permissions-table td{padding:0 16px;height:48px;text-align:left;vertical-align:middle;border:0;border-bottom:1px solid #edf1f7}
+.admin-permissions-table thead th{height:40px;font-size:11px;font-weight:600;color:#6f7f98;white-space:nowrap}
+.admin-permissions-table tbody+tbody tr:first-child>*{border-top:1px solid #dce3ef}
+.admin-permissions-table tbody th[scope="rowgroup"]{vertical-align:top;padding-top:16px;font-weight:600;background:#fafbfe;color:#4e6282}
+.admin-permissions-table tbody:last-child tr:last-child td,.admin-permissions-table tbody:last-child th[scope="rowgroup"]{border-bottom:0}
+.admin-permissions-table td:last-child,.admin-permissions-table thead th:last-child{text-align:center}
+.admin-permissions-table td label{display:flex;align-items:center;min-height:48px;line-height:1.5;cursor:pointer}
+.admin-permissions-table input{width:16px;height:16px;margin:0;vertical-align:middle;accent-color:#4263eb;cursor:pointer}
+.admin-permissions-table input:disabled{cursor:default}
+.admin-permissions-table input:focus-visible{outline:2px solid #4263eb;outline-offset:4px}
+.admin-permission-row{cursor:pointer}
+.admin-permission-row:hover td{background:#f7f9ff}
+.permission-availability{font-size:11px;white-space:nowrap}
+.permission-availability.available{color:#237a64}
+.permission-availability.unavailable{color:#7b879b}
+.admin-permission-footer{display:flex;align-items:center;justify-content:flex-end;gap:16px;margin-top:16px;min-height:36px}
+#admin-permissions-dirty{font-size:11px;color:#7c6540}
+@media(max-width:1100px){.admin-member-header{grid-template-columns:minmax(0,1fr) auto}.admin-member-header .admin-status-actions{grid-column:1/-1}.permission-platform-col{width:80px}.permission-status-col{width:92px}.permission-access-col{width:84px}.admin-permissions-table th,.admin-permissions-table td{padding-left:12px;padding-right:12px}}
+@media(max-width:760px){.admin-member-header{grid-template-columns:1fr;gap:12px}.admin-member-header .admin-status-actions{grid-column:auto}.admin-permissions-table{min-width:460px}.admin-permission-footer{flex-wrap:wrap;gap:12px}}
+
+/* Team administration uses a compact table consistent with tool permissions. */
+.admin-team-create{padding:16px 20px;border-bottom:1px solid #edf1f7}
+.admin-team-create form{display:flex;align-items:center;gap:12px}
+.admin-team-create label{font-size:12px;color:#6f7f98;white-space:nowrap}
+.admin-team-create input{width:280px;max-width:100%;min-width:0;padding:9px 12px;border:1px solid #dce3ef;border-radius:6px;font:inherit;font-size:12px}
+.admin-team-table-scroll{overflow-x:auto}
+.admin-team-table{width:100%;border-collapse:collapse;font-size:12px;color:#536782;min-width:650px}
+.admin-team-table th,.admin-team-table td{text-align:left;padding:12px 20px;border:0;border-bottom:1px solid #edf1f7;vertical-align:middle}
+.admin-team-table thead th{font-size:11px;color:#6f7f98;background:#f7f9fc;font-weight:600}
+.admin-team-table tbody th{font-weight:600;max-width:240px;overflow-wrap:anywhere}
+.admin-team-table tbody tr:last-child>*{border-bottom:0}
+.admin-team-table td small{display:block;margin-top:3px;font-size:10px;color:#8a98ac}
+.admin-team-table th:last-child{width:280px}
+.admin-team-actions{display:flex;align-items:center;gap:16px;white-space:nowrap}
+.admin-team-actions button:disabled{opacity:.4;cursor:not-allowed}
+@media(max-width:760px){.admin-team-create form{flex-wrap:wrap}.admin-team-create input{flex:1}.admin-team-create label{width:100%}.admin-team-table th,.admin-team-table td{padding:12px}}

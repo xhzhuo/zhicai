@@ -291,7 +291,7 @@ def register(payload: Registration, request: Request) -> dict:
     if not EMAIL_RE.fullmatch(email) or len(payload.password) < 12 or len(payload.password) > 128:
         raise HTTPException(422, "请填写有效邮箱和 12～128 位密码")
     with db() as conn:
-        team = conn.execute("SELECT id FROM teams WHERE id=%s AND selectable=true", (payload.teamId,)).fetchone()
+        team = conn.execute("SELECT id FROM teams WHERE id=%s AND selectable=true FOR SHARE", (payload.teamId,)).fetchone()
         if not team:
             raise HTTPException(422, "请选择有效团队")
         if conn.execute("SELECT 1 FROM users WHERE email=%s", (email,)).fetchone():
@@ -411,26 +411,94 @@ class TeamInput(BaseModel):
     name: str = Field(min_length=1, max_length=60)
 
 
+class TeamUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=60)
+    selectable: bool | None = None
+
+
+def team_name(value: str) -> str:
+    name = value.strip()
+    if not name:
+        raise HTTPException(422, "请填写团队名称")
+    return name
+
+
 @admin_router.get("/teams")
 def admin_teams(request: Request) -> list[dict]:
     admin_from_request(request)
     with db() as conn:
-        return conn.execute("SELECT id,name,selectable FROM teams ORDER BY created_at").fetchall()
+        return conn.execute("""
+            SELECT t.id,t.name,t.selectable,
+              (t.id='bootstrap') AS protected,
+              (SELECT count(*) FROM users u WHERE u.team_id=t.id) AS member_count,
+              (SELECT count(*) FROM users u WHERE u.requested_team_id=t.id
+                 AND u.status='pending') AS pending_count,
+              (SELECT count(*) FROM platform_accounts a WHERE a.team_id=t.id
+                 AND a.deleted_at IS NULL) AS account_count,
+              (NOT EXISTS(SELECT 1 FROM users u WHERE u.team_id=t.id OR u.requested_team_id=t.id)
+               AND NOT EXISTS(SELECT 1 FROM platform_accounts a WHERE a.team_id=t.id)
+               AND NOT EXISTS(SELECT 1 FROM industry_presets i WHERE i.team_id=t.id)
+               AND t.id<>'bootstrap') AS deletable
+            FROM teams t ORDER BY t.created_at
+        """).fetchall()
 
 
 @admin_router.post("/teams")
 def create_team(payload: TeamInput, request: Request) -> dict:
     admin = admin_from_request(request)
-    name = payload.name.strip()
-    if not name:
-        raise HTTPException(422, "请填写团队名称")
+    name = team_name(payload.name)
     team_id = uuid.uuid4().hex
     with db() as conn:
-        if conn.execute("SELECT 1 FROM teams WHERE name=%s", (name,)).fetchone():
+        conn.execute("LOCK TABLE teams IN SHARE ROW EXCLUSIVE MODE")
+        if conn.execute("SELECT 1 FROM teams WHERE lower(name)=lower(%s)", (name,)).fetchone():
             raise HTTPException(409, "团队名称已存在")
         conn.execute("INSERT INTO teams(id,name) VALUES (%s,%s)", (team_id, name))
         audit(conn, admin["id"], "create", "team", team_id)
     return {"id": team_id, "name": name}
+
+
+@admin_router.patch("/teams/{team_id}")
+def update_team(team_id: str, payload: TeamUpdate, request: Request) -> dict:
+    admin = admin_from_request(request)
+    if not payload.model_fields_set or any(getattr(payload, field) is None for field in payload.model_fields_set):
+        raise HTTPException(422, "请提供团队名称或状态")
+    name = team_name(payload.name) if payload.name is not None else None
+    with db() as conn:
+        conn.execute("LOCK TABLE teams IN SHARE ROW EXCLUSIVE MODE")
+        row = conn.execute("SELECT id,name,selectable FROM teams WHERE id=%s FOR UPDATE", (team_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "团队不存在")
+        if team_id == "bootstrap":
+            raise HTTPException(409, "管理员团队为系统内置团队，不可修改")
+        if name and conn.execute("SELECT 1 FROM teams WHERE id<>%s AND lower(name)=lower(%s)",
+                                 (team_id, name)).fetchone():
+            raise HTTPException(409, "团队名称已存在")
+        updated = conn.execute("""UPDATE teams SET name=COALESCE(%s,name),
+            selectable=COALESCE(%s,selectable) WHERE id=%s RETURNING id,name,selectable""",
+            (name, payload.selectable, team_id)).fetchone()
+        audit(conn, admin["id"], "update", "team", team_id)
+    return updated
+
+
+@admin_router.delete("/teams/{team_id}")
+def delete_team(team_id: str, request: Request) -> dict:
+    admin = admin_from_request(request)
+    with db() as conn:
+        row = conn.execute("SELECT id FROM teams WHERE id=%s FOR UPDATE", (team_id,)).fetchone()
+        if not row:
+            raise HTTPException(404, "团队不存在")
+        if team_id == "bootstrap":
+            raise HTTPException(409, "管理员团队不可删除")
+        refs = conn.execute("""SELECT
+            (SELECT count(*) FROM users WHERE team_id=%s OR requested_team_id=%s) AS members,
+            (SELECT count(*) FROM platform_accounts WHERE team_id=%s) AS accounts,
+            (SELECT count(*) FROM industry_presets WHERE team_id=%s) AS presets""",
+            (team_id, team_id, team_id, team_id)).fetchone()
+        if any(refs.values()):
+            raise HTTPException(409, "团队存在成员、注册申请、平台账号或常用行业，不能删除")
+        conn.execute("DELETE FROM teams WHERE id=%s", (team_id,))
+        audit(conn, admin["id"], "delete", "team", team_id)
+    return {"id": team_id}
 
 
 @admin_router.get("/users")
@@ -461,7 +529,7 @@ def update_user(user_id: str, payload: UserUpdate, request: Request) -> dict:
     if payload.tools is not None and any(tool not in TOOLS for tool in payload.tools):
         raise HTTPException(422, "工具编号无效")
     with db() as conn:
-        row = conn.execute("SELECT id,role,team_id,requested_team_id FROM users WHERE id=%s FOR UPDATE", (user_id,)).fetchone()
+        row = conn.execute("SELECT id,role,status,team_id,requested_team_id FROM users WHERE id=%s FOR UPDATE", (user_id,)).fetchone()
         if not row:
             raise HTTPException(404, "用户不存在")
         if user_id == admin["id"] and payload.status in {"disabled", "rejected"}:
@@ -469,9 +537,11 @@ def update_user(user_id: str, payload: UserUpdate, request: Request) -> dict:
         team_id = payload.teamId or row["team_id"] or row["requested_team_id"]
         if payload.status == "active" and not team_id:
             raise HTTPException(422, "批准前请指定团队")
-        if team_id and not conn.execute("SELECT 1 FROM teams WHERE id=%s AND (%s='admin' OR selectable=true)",
-                                        (team_id, row["role"])).fetchone():
-            raise HTTPException(422, "团队不存在")
+        if team_id:
+            team = conn.execute("SELECT selectable FROM teams WHERE id=%s FOR SHARE", (team_id,)).fetchone()
+            joining = team_id != row["team_id"] or (row["status"] == "pending" and payload.status == "active")
+            if not team or (joining and row["role"] != "admin" and not team["selectable"]):
+                raise HTTPException(422, "团队不存在或已停用")
         if row["role"] == "admin" and payload.teamId and payload.teamId != row["team_id"]:
             raise HTTPException(409, "管理员团队不能在此修改")
         conn.execute("""UPDATE users SET status=COALESCE(%s,status),team_id=COALESCE(%s,team_id),

@@ -5,9 +5,10 @@ const realTools = {keywords: 'recommend', trend: 'combined', industry: 'bubble',
 const fromRealTool = {recommend: 'keywords', combined: 'trend', bubble: 'industry', notes: 'notes', adgroups:'adgroups', plaza:'plaza'};
 let toolLocationImages = {};
 const toolLocationPaths = {
-  keywords: '小红书 · 聚光｜具体页面路径待截图确认',
-  trend: '小红书 · 聚光｜具体页面路径待截图确认',
-  industry: '小红书灵犀 → 行业 → 市场机会 → 市场分析 → 市场竞争分析'
+  keywords: '小红书聚光 → 工具 → 搜索工具 → 关键词规划工具 → 以词推词 → 词根拓词',
+  trend: '小红书聚光 → 工具 → 搜索工具 → 关键词规划工具 → 以词推词 → 词根拓词 → 输入词根并查询 → 点击结果中的关键词 → 关键词洞察 → 数据趋势（搜索指数）',
+  industry: '小红书灵犀 → 行业 → 市场机会 → 市场分析 → 市场竞争分析',
+  adgroups: '小红书聚光 → 竞价推广 → 标准投 → 广告组'
 };
 const realRuns = new Map();
 const realSelected = {};
@@ -90,7 +91,7 @@ tools.notes.output='笔记数据 Excel + 封面素材包';
 tools.notes.sample='';
 
 for(const [id,definition] of Object.entries({
-  adgroups:{title:'聚光广告组信息导出',desc:'查询所选账号的广告组，自动获取全部数据并导出 Excel。',input:'聚光账号 + 可选统计日期',output:'账号、广告组、广告组ID、广告组状态、导出时间'},
+  adgroups:{title:'广告组信息导出',desc:'查询所选账号的广告组，自动获取全部数据并导出 Excel。',input:'聚光账号 + 可选统计日期',output:'账号、广告组、广告组ID、广告组状态、导出时间'},
   plaza:{title:'合作广场笔记采集',desc:'按 Excel 筛选条件采集笔记，可选补采评论、情感分析与关键词词云。',input:'聚光账号 + 筛选条件 Excel',output:'笔记数据、采集记录及可选评论结果'}
 })){
   tools[id]={...definition,platform:'xhs',source:'聚光',icon:'table',kind:'platform',unit:'任务',sample:'',columns:[]};
@@ -124,10 +125,11 @@ openTool = function (id, record=null) {
 renderCatalog = function () {
   const list = allTools.filter(id => (platform==='all'||tools[id].platform===platform)
     && (!catalogQuery||(tools[id].title+tools[id].source+tools[id].desc).includes(catalogQuery)));
+  if(platform==='all')list.sort((a,b)=>Number(!!realTools[b])-Number(!!realTools[a]));
   $('#main').innerHTML = `<div class="heading"><div><div class="eyebrow">DATA ACQUISITION</div><h1>工具中心</h1><p>选择平台与工具，填写参数，获取可下载的数据。</p></div><div class="heading-actions"><button class="btn" data-page="history">${I('clock','i16')}<span>运行记录</span></button></div></div>
     <section class="filter-bar" aria-label="按平台筛选工具"><div class="flex"><span class="filter-title">平台</span><div class="platforms">${platformChips()}</div></div><div class="search">${I('search','i14')}<input id="tool-search" type="search" aria-label="搜索工具" placeholder="搜索工具名称" value="${esc(catalogQuery)}"></div></section>
     <div class="between catalog-meta"><span>共 ${list.length} 个工具 <span class="muted">· ${platform==='all'?'所有平台':platforms[platform].name}</span></span><span>已接入 ${Object.keys(realTools).length} 个采集流程</span></div>
-    <section class="catalog-grid">${list.map(id => { const t=tools[id],ready=!!realTools[id],allowed=ready&&(!window.ZHICAI_SERVER_MODE||can(id)); return `<article class="tool-card"><div class="between">${platformBadge(t.platform)}<span class="pill">${platforms[t.platform].name} · ${t.source}</span></div><h2>${t.title}</h2><p class="desc">${t.desc}</p><div class="tool-spec"><span>输入</span><span>${t.input}</span><span>输出</span><span title="${t.output}">${t.output}</span></div><div class="tool-card-foot"><span class="pill ${allowed?'green':'amber'}">${allowed?'实际工具':ready?'未授权':'尚未接入'}</span><button class="text-btn" data-open-tool="${id}" ${allowed?'':'disabled'}>${allowed?'配置采集':ready?'无访问权限':'暂无实际工具'}${I('chevron','i14')}</button></div></article>`; }).join('')}</section>
+    <section class="catalog-grid">${list.map(id => { const t=tools[id],ready=!!realTools[id],allowed=ready&&(!window.ZHICAI_SERVER_MODE||can(id)); return `<article class="tool-card"><div class="between">${platformBadge(t.platform)}<span class="pill">${platforms[t.platform].name} · ${t.source}</span></div><h2>${t.title}</h2><p class="desc">${t.desc}</p><div class="tool-spec"><span>输入</span><span>${t.input}</span><span>输出</span><span title="${t.output}">${t.output}</span></div><div class="tool-card-foot"><span class="pill ${allowed?'green':'amber'}">${allowed?'可用':ready?'未授权':'尚未接入'}</span><button class="text-btn" data-open-tool="${id}" ${allowed?'':'disabled'}>${allowed?'配置采集':ready?'无访问权限':'暂无实际工具'}${I('chevron','i14')}</button></div></article>`; }).join('')}</section>
     ${!list.length?emptyView('没有匹配的工具','试试切换平台或清空搜索条件。','search'):''}
     <div class="catalog-note">${I('info','i16')}<span>标记“尚未接入”的工具暂不可运行。</span></div>${realFooter()}`;
 };

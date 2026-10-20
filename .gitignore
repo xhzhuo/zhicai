@@ -6,3 +6,7 @@ __pycache__/
 .pytest_cache/
 .env
 
+# Session-header screenshots retain credential fragments and stay server-local.
+/app/static/help-images/cookie-headers.png
+/app/help-docs/*/images/Cookie*.png
+
