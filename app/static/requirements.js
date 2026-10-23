@@ -1,11 +1,11 @@
 /* Server-backed requirement intake. No durable browser storage or demo rows. */
 'use strict';
 
-const requirementKinds={new_tool:'新增取数工具',enhancement:'改进现有工具',problem:'运行问题'};
+const requirementKinds={new_tool:'新增取数工具',enhancement:'改进现有工具',problem:'运行问题',tool_access:'工具权限申请'};
 const requirementStatuses={submitted:'待评估',needs_info:'需补充',evaluating:'评估中',scheduled:'已排期',in_progress:'处理中',done:'已完成',declined:'不采纳'};
 const requirementStatusColors={submitted:'blue',needs_info:'amber',evaluating:'blue',scheduled:'blue',in_progress:'amber',done:'green',declined:'red'};
 let requirementMode='list',requirementList=[],requirementDetail=null,requirementDraft=null;
-let requirementFilters={kind:'',status:''},requirementLoaded=false,requirementLoading=false,requirementLoadError='',requirementManageEnabled=false;
+let requirementFilters={kind:'',status:''},requirementLoaded=false,requirementLoading=false,requirementLoadError='',requirementManageEnabled=false,reqDisabledTools=[];
 
 const previousRenderChrome=renderChrome;
 renderChrome=function(){
@@ -72,7 +72,13 @@ function renderRequirementList(){
 
 function reqInput(id,label,inner,hint=''){return `<div class="field"><div class="field-label"><label for="${id}">${label}</label></div>${inner}${hint?`<div class="field-hint">${hint}</div>`:''}</div>`;}
 function reqText(id,placeholder='',value=''){return `<textarea id="${id}" rows="4" placeholder="${esc(placeholder)}">${esc(value)}</textarea>`;}
-function reqToolOptions(selected=''){return `<option value="">请选择工具</option>${Object.entries(platforms).map(([platformId,p])=>`<optgroup label="${esc(p.name)}">${allTools.filter(id=>tools[id].platform===platformId).map(id=>`<option value="${id}" ${selected===id?'selected':''}>${esc(tools[id].title)}</option>`).join('')}</optgroup>`).join('')}`;}
+function reqToolOptions(selected='',access=false){
+  return `<option value="">请选择工具</option>${Object.entries(platforms).map(([platformId,platform])=>{
+    const ids=allTools.filter(id=>tools[id].platform===platformId&&(!access||
+      realTools[id]&&!reqDisabledTools.includes(realTools[id])&&!window.ZHICAI_ME?.tools?.includes(realTools[id])));
+    return ids.length?`<optgroup label="${esc(platform.name)}">${ids.map(id=>`<option value="${id}" ${selected===id?'selected':''}>${esc(tools[id].title)}</option>`).join('')}</optgroup>`:'';
+  }).join('')}`;
+}
 
 function renderRequirementForm(){
   const draft=requirementDraft||{},kind=draft.kind||'new_tool';
@@ -80,56 +86,74 @@ function renderRequirementForm(){
     <section class="panel req-form-panel"><form id="req-form" novalidate><div class="panel-head"><h2>提交需求</h2></div><div class="req-form-body">
     <div class="req-form-grid">${reqInput('req-kind','需求类型',`<select id="req-kind">${Object.entries(requirementKinds).map(([key,label])=>`<option value="${key}" ${kind===key?'selected':''}>${label}</option>`).join('')}</select>`)}
     ${reqInput('req-title','标题',`<input id="req-title" maxlength="120" required value="${esc(draft.title||'')}" placeholder="例如：批量获取聚光关键词搜索量">`)}
-    ${reqInput('req-contact','联系方式',`<input id="req-contact" maxlength="120" required value="${esc(draft.contact||'')}" placeholder="邮箱或飞书账号">`,'正式接入用户登录后，这项可由账号自动带入。')}
-    ${reqInput('req-platform','来源平台',`<select id="req-platform"><option value="">请选择平台</option>${Object.entries(platforms).map(([key,p])=>`<option value="${key}" ${draft.platform===key?'selected':''}>${esc(p.name)}</option>`).join('')}<option value="other" ${draft.platform==='other'?'selected':''}>其他平台</option></select>`)}
+    <div class="req-existing-only">${reqInput('req-tool','现有工具',`<select id="req-tool">${reqToolOptions(draft.toolId||'',kind==='tool_access')}</select>`)}</div>
+    <div class="req-source-field">${reqInput('req-platform','来源平台',`<select id="req-platform"><option value="">请选择平台</option>${Object.entries(platforms).map(([key,p])=>`<option value="${key}" ${draft.platform===key?'selected':''}>${esc(p.name)}</option>`).join('')}<option value="other" ${draft.platform==='other'?'selected':''}>其他平台</option></select>`)}</div>
     <div class="req-other-platform hidden">${reqInput('req-platform-other','其他平台名称',`<input id="req-platform-other" maxlength="50" placeholder="填写平台名称">`)}</div>
-    ${reqInput('req-service','具体服务',`<input id="req-service" maxlength="80" value="${esc(draft.service||'')}" placeholder="例如：聚光、灵犀、生意参谋">`)}
-    <div class="req-existing-only">${reqInput('req-tool','现有工具',`<select id="req-tool">${reqToolOptions(draft.toolId||'')}</select>`)}</div>
+    <div class="req-source-field">${reqInput('req-service','具体服务',`<input id="req-service" maxlength="80" value="${esc(draft.service||'')}" placeholder="例如：聚光、灵犀、生意参谋">`)}</div>
     <div class="req-problem-only">${reqInput('req-run','运行记录编号（可选）',`<input id="req-run" maxlength="32" value="${esc(draft.runId||'')}" placeholder="从运行记录进入会自动填写">`)}</div></div>
     ${reqInput('req-description','业务目的 / 问题描述',reqText('req-description','你要解决什么问题？',draft.description||''))}
     <div class="req-new-only">${reqInput('req-location','数据所在页面',reqText('req-location','平台菜单路径或页面链接；也可以在下方上传取数位置截图',draft.sourceLocation||''),'页面路径／链接和位置截图至少提供一种。')}
     ${reqInput('req-data','想获取的数据',reqText('req-data','例如：品牌名、搜索量、阅读量；按天还是按月',draft.desiredData||''))}
     </div>
     ${reqInput('req-expected','期望结果',reqText('req-expected','例如：导出 Excel，每个关键词每天一行',draft.expectedResult||''))}
-    <div class="req-form-grid">${reqInput('req-frequency','使用频率（可选）',`<select id="req-frequency"><option value="">暂不确定</option>${[['一次性','一次性'],['每天','每天'],['每周','每周'],['每月','每月'],['其他','其他']].map(([key,label])=>`<option value="${key}" ${draft.frequency===key?'selected':''}>${label}</option>`).join('')}</select>`)}
+    <div class="req-form-grid req-schedule-row"><div class="req-frequency-field">${reqInput('req-frequency','使用频率（可选）',`<select id="req-frequency"><option value="">暂不确定</option>${[['一次性','一次性'],['每天','每天'],['每周','每周'],['每月','每月'],['其他','其他']].map(([key,label])=>`<option value="${key}" ${draft.frequency===key?'selected':''}>${label}</option>`).join('')}</select>`)}</div>
     ${reqInput('req-needed-by','期望完成日期（可选）',`<input id="req-needed-by" type="date" value="${esc(draft.neededBy||'')}">`)}</div>
-    ${reqInput('req-attachments','截图或样例文件（可选）',`<input id="req-attachments" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.pdf,.csv,.xlsx">`,'最多 3 个，每个小于 10 MB。请勿上传账号密码或 Cookie。')}
+    <div class="req-attachments-field">${reqInput('req-attachments','截图或样例文件（可选）',`<input id="req-attachments" type="file" multiple accept=".png,.jpg,.jpeg,.webp,.pdf,.csv,.xlsx">`,'最多 3 个，每个小于 10 MB。请勿上传账号密码或 Cookie。')}</div>
     <div class="form-errors hidden" id="req-errors" role="alert"></div></div><div class="req-form-footer"><span class="small muted">提交后生成需求编号，可在“我的需求”查看。</span><button type="submit" class="btn primary" id="req-submit">提交需求</button></div></form></section>${realFooter()}`;
   updateRequirementKind();
 }
 
 function updateRequirementKind(){
   const kind=$('#req-kind')?.value;if(!kind)return;
-  $('#req-contact')?.closest('.field')?.classList.toggle('hidden',kind==='new_tool');
+  const errorBox=$('#req-errors');if(errorBox){errorBox.textContent='';errorBox.classList.add('hidden');}
+  const access=kind==='tool_access',existing=kind!=='new_tool';
   $('#req-description')?.closest('.field')?.classList.toggle('hidden',kind==='new_tool');
   $$('.req-new-only').forEach(el=>el.classList.toggle('hidden',kind!=='new_tool'));
-  $$('.req-existing-only').forEach(el=>el.classList.toggle('hidden',kind==='new_tool'));
+  $$('.req-existing-only').forEach(el=>el.classList.toggle('hidden',!existing));
   $$('.req-problem-only').forEach(el=>el.classList.toggle('hidden',kind!=='problem'));
-  $('.req-other-platform')?.classList.toggle('hidden',$('#req-platform').value!=='other');
+  $$('.req-source-field,.req-other-platform').forEach(el=>el.classList.toggle('hidden',access||existing));
+  $('.req-other-platform')?.classList.toggle('hidden',access||existing||$('#req-platform').value!=='other');
+  $('.req-frequency-field')?.classList.toggle('hidden',kind!=='new_tool');
+  $('.req-schedule-row')?.classList.toggle('hidden',access);
+  $('.req-schedule-row')?.classList.toggle('single-field',kind!=='new_tool');
+  $('#req-needed-by')?.closest('.field')?.classList.toggle('hidden',access);
+  $('.req-attachments-field')?.classList.toggle('hidden',access);
+  $('#req-expected')?.closest('.field')?.classList.toggle('hidden',kind==='problem'||access);
+  const titlePlaceholders={new_tool:'例如：新增品牌销售数据导出工具',enhancement:'例如：关键词推荐增加筛选条件',problem:'例如：行业竞争数据运行后没有结果',tool_access:'例如：申请开通工具访问权限'};
+  $('#req-title').placeholder=titlePlaceholders[kind];
+  $('#req-description').placeholder=kind==='problem'?'描述运行时发生了什么':access?'简要说明使用场景（可选）':'描述希望改进的地方';
+  $('#req-description').rows=access?2:4;
+  const toolLabel=$('label[for="req-tool"]');
+  if(toolLabel)toolLabel.textContent=kind==='problem'?'问题工具':access?'申请工具':'现有工具';
+  const options=$('#req-tool');
+  if(options){const previous=options.value;options.innerHTML=reqToolOptions(previous,access);options.value=[...options.options].some(item=>item.value===previous)?previous:'';}
+  const selectedTool=tools[options?.value];
+  if(existing){$('#req-platform').value=selectedTool?.platform||'';$('#req-service').value=selectedTool?.source||'';}
   const descriptionLabel=$('label[for="req-description"]');
   const expectedLabel=$('label[for="req-expected"]');
-  if(descriptionLabel)descriptionLabel.textContent=kind==='new_tool'?'问题描述':kind==='enhancement'?'现在哪里不方便':'实际发生了什么';
-  if(expectedLabel)expectedLabel.textContent=kind==='new_tool'?'期望表格的样子':kind==='enhancement'?'希望改成什么':'期望正常情况是什么';
+  if(descriptionLabel)descriptionLabel.textContent=kind==='new_tool'?'问题描述':kind==='enhancement'?'现在哪里不方便':kind==='problem'?'发生了什么':'申请说明（可选）';
+  if(expectedLabel)expectedLabel.textContent=kind==='new_tool'?'期望表格的样子':kind==='enhancement'?'希望改成什么':'期望结果';
 }
 
 function reqError(message){const box=$('#req-errors');if(box){box.textContent=message;box.classList.remove('hidden');box.scrollIntoView({block:'nearest'});}toast(message,'alert');}
 async function submitRequirement(){
-  const kind=$('#req-kind').value,title=$('#req-title').value.trim(),contact=$('#req-contact')?.value.trim()||'';
-  const description=$('#req-description')?.value.trim()||'',expected=$('#req-expected').value.trim();
+  const kind=$('#req-kind').value,title=$('#req-title').value.trim();
+  const description=$('#req-description')?.value.trim()||'',expected=$('#req-expected')?.value.trim()||'';
   const toolId=$('#req-tool').value,platform=$('#req-platform').value==='other'?$('#req-platform-other').value.trim():$('#req-platform').value,service=$('#req-service').value.trim();
-  const location=$('#req-location').value.trim(),wanted=$('#req-data').value.trim(),files=[...$('#req-attachments').files];
-  if(!title||!expected)return reqError('请填写标题和期望结果。');
-  if(kind!=='new_tool'&&(!contact||!description))return reqError('请填写联系方式和需求描述。');
+  const location=$('#req-location').value.trim(),wanted=$('#req-data').value.trim(),files=kind==='tool_access'?[]:[...$('#req-attachments').files];
+  if(!title)return reqError('请填写标题。');
+  if(['new_tool','enhancement'].includes(kind)&&!expected)return reqError('请填写期望结果。');
+  if(['enhancement','problem'].includes(kind)&&!description)return reqError(kind==='problem'?'请填写发生了什么。':'请填写希望改进的地方。');
   if(kind==='new_tool'&&(!platform||!service||!wanted))return reqError('新增工具还需填写平台、具体服务和想获取的数据。');
   if(kind==='new_tool'&&!location&&!files.some(file=>/\.(png|jpe?g|webp)$/i.test(file.name)))return reqError('请填写数据所在页面，或上传取数位置截图。');
-  if(kind!=='new_tool'&&!toolId)return reqError('请选择现有工具。');
+  if(kind!=='new_tool'&&!toolId)return reqError(kind==='problem'?'请选择问题工具':'请选择工具。');
   if(files.length>3||files.some(file=>file.size>10*1024*1024||file.size===0))return reqError('最多上传 3 个附件，每个需小于 10 MB 且不能为空。');
   const data=new FormData();
-  const fields={kind,title,contact:kind==='new_tool'?'':contact,description:kind==='new_tool'?'':description,expected_result:expected,platform,service,
+  const fields={kind,title,description:kind==='new_tool'?'':description,expected_result:expected,platform,service,
     tool_id:kind==='new_tool'?'':toolId,run_id:kind==='problem'?$('#req-run').value.trim():'',
     source_location:kind==='new_tool'?location:'',desired_data:kind==='new_tool'?wanted:'',
     input_conditions:'',
-    usage_frequency:$('#req-frequency').value,needed_by:$('#req-needed-by').value};
+    usage_frequency:kind==='new_tool'?$('#req-frequency').value:'',needed_by:kind==='tool_access'?'':$('#req-needed-by').value};
   Object.entries(fields).forEach(([key,value])=>data.append(key,value));
   files.forEach(file=>data.append('attachments',file,file.name));
   const button=$('#req-submit');button.disabled=true;
@@ -153,11 +177,33 @@ function renderRequirementDetail(){
   if(!item){requirementMode='list';renderRequirementList();return;}
   $('#main').innerHTML=`<div class="heading"><div><div class="eyebrow">REQUEST DETAIL</div><h1>${esc(item.title)}</h1><p>需求编号 ${esc(item.id)} · ${requirementKinds[item.kind]}</p></div><div class="heading-actions"><button class="btn" data-req-mode="list">${I('left','i16')}我的需求</button></div></div>
     <section class="panel req-detail-panel"><div class="panel-head"><h2>需求详情</h2>${reqStatus(item.status)}</div><div class="req-detail-body"><dl class="req-details-grid">
-    ${reqLine('提交人',item.requester)}${reqLine('联系方式',item.contact)}${reqLine('平台',platforms[item.platform]?.name||item.platform)}${reqLine('具体服务',item.service)}${reqLine('关联工具',tools[item.tool_id]?.title||item.tool_id)}${reqLine('运行记录',item.run_id)}
-    ${reqLine(item.kind==='problem'?'实际情况':'业务目的 / 当前问题',item.description)}${reqLine('数据所在页面',item.source_location)}${reqLine('想获取的数据',item.desired_data)}${reqLine('期望结果',item.expected_result)}${reqLine('输入条件',item.input_conditions)}${reqLine('使用频率',item.usage_frequency)}${reqLine('期望完成日期',item.needed_by)}${reqLine('提交时间',item.created_at.replace('T',' ').slice(0,19))}
+    ${reqLine('提交人',item.requester)}${reqLine('平台',platforms[item.platform]?.name||item.platform)}${reqLine('具体服务',item.service)}${reqLine('关联工具',tools[item.tool_id]?.title||item.tool_id)}${reqLine('运行记录',item.run_id)}
+    ${reqLine(item.kind==='problem'?'发生了什么':item.kind==='tool_access'?'申请说明':'业务目的 / 当前问题',item.description)}${reqLine('数据所在页面',item.source_location)}${reqLine('想获取的数据',item.desired_data)}${reqLine('期望结果',item.expected_result)}${reqLine('输入条件',item.input_conditions)}${reqLine('使用频率',item.usage_frequency)}${reqLine('期望完成日期',item.needed_by)}${reqLine('提交时间',item.created_at.replace('T',' ').slice(0,19))}
     </dl>${item.attachments.length?`<div class="req-attachments"><h3>附件</h3>${item.attachments.map(file=>`<a href="/api/requirements/${item.id}/attachments/${file.id}">${I('download','i14')}${esc(file.filename)} <small>(${Math.ceil(file.size_bytes/1024)} KB)</small></a>`).join('')}</div>`:''}</div></section>
     <section class="panel req-timeline"><div class="panel-head"><h2>处理进度</h2></div><div class="req-timeline-body">${item.events.map(event=>`<div class="req-event"><div>${reqStatus(event.status)}<span class="small muted">${esc(event.created_at.replace('T',' ').slice(0,19))}</span></div>${event.note?`<p>${esc(event.note)}</p>`:''}</div>`).join('')}</div></section>
-    ${requirementManageEnabled?`<details class="panel req-manage"><summary>本机处理：更新需求状态</summary><div class="req-manage-body"><div class="field"><label for="req-next-status">状态</label><select id="req-next-status">${Object.entries(requirementStatuses).map(([key,label])=>`<option value="${key}" ${item.status===key?'selected':''}>${label}</option>`).join('')}</select></div><div class="field"><label for="req-status-note">处理说明（可选）</label><textarea id="req-status-note" rows="2" maxlength="1000" placeholder="说明下一步或需补充的信息"></textarea></div><button class="btn primary" data-req-status>保存处理进度</button></div></details>`:''}${realFooter()}`;
+    ${renderRequirementManagement(item)}${realFooter()}`;
+}
+
+function renderRequirementManagement(item){
+  if(!requirementManageEnabled)return '';
+  if(item.kind==='tool_access'){
+    if(['done','declined'].includes(item.status))return '';
+    return `<section class="panel req-manage req-permission-decision"><div class="panel-head"><h2>处理权限申请</h2></div><div class="req-manage-body"><div class="field"><label for="req-decision-note">处理说明（可选）</label><textarea id="req-decision-note" rows="3" maxlength="1000" placeholder="填写批准或拒绝原因"></textarea></div><div class="req-manage-actions"><button class="btn" data-req-decision="reject">拒绝申请</button><button class="btn primary" data-req-decision="approve">批准并开通权限</button></div></div></section>`;
+  }
+  return `<details class="panel req-manage"><summary>更新需求状态</summary><div class="req-manage-body"><div class="field"><label for="req-next-status">状态</label><select id="req-next-status">${Object.entries(requirementStatuses).map(([key,label])=>`<option value="${key}" ${item.status===key?'selected':''}>${label}</option>`).join('')}</select></div><div class="field"><label for="req-status-note">处理说明（可选）</label><textarea id="req-status-note" rows="4" maxlength="1000" placeholder="填写本次处理说明"></textarea></div><div class="req-manage-actions"><button class="btn primary" data-req-status>保存处理进度</button></div></div></details>`;
+}
+
+async function decideRequirementPermission(button){
+  const approve=button.dataset.reqDecision==='approve';
+  if(!confirm(approve?'批准后将立即为申请人开通该工具权限，确定继续吗？':'确定拒绝该工具权限申请吗？'))return;
+  const note=$('#req-decision-note')?.value.trim()||'';
+  $$('.req-permission-decision button').forEach(el=>el.disabled=true);
+  try{
+    await realApi(`/api/requirements/${requirementDetail.id}/permission-decision`,{method:'POST',body:JSON.stringify({approve,note})});
+    requirementLoaded=false;
+    await openRequirement(requirementDetail.id);
+    toast(approve?'工具权限已开通。':'申请已拒绝。');
+  }catch(error){toast(error.message,'alert');$$('.req-permission-decision button').forEach(el=>el.disabled=false);}
 }
 
 async function changeRequirementStatus(){
@@ -183,18 +229,19 @@ document.addEventListener('click',event=>{
   const modeButton=event.target.closest('[data-req-mode]');if(modeButton){requirementMode=modeButton.dataset.reqMode;if(requirementMode==='new')requirementDraft=null;renderRequirements();return;}
   const openButton=event.target.closest('[data-req-open]');if(openButton){void openRequirement(openButton.dataset.reqOpen);return;}
   if(event.target.closest('[data-req-status]')){void changeRequirementStatus();return;}
+  const decision=event.target.closest('[data-req-decision]');if(decision){void decideRequirementPermission(decision);return;}
 });
 document.addEventListener('change',event=>{
   const element=event.target;
   if(element.id==='req-kind'){updateRequirementKind();return;}
-  if(element.id==='req-tool'&&element.value){const tool=tools[element.value];$('#req-platform').value=tool.platform;$('#req-service').value=tool.source;return;}
+  if(element.id==='req-tool'){const tool=tools[element.value];$('#req-platform').value=tool?.platform||'';$('#req-service').value=tool?.source||'';return;}
   if(element.id==='req-platform'){$('.req-other-platform')?.classList.toggle('hidden',element.value!=='other');return;}
   if(element.id==='req-kind-filter'){requirementFilters.kind=element.value;requirementLoaded=false;requirementLoadError='';requirementList=[];void fetchRequirementList();return;}
   if(element.id==='req-status-filter'){requirementFilters.status=element.value;requirementLoaded=false;requirementLoadError='';requirementList=[];void fetchRequirementList();return;}
 });
 document.addEventListener('submit',event=>{if(event.target.id==='req-form'){event.preventDefault();void submitRequirement();}});
 
-void realApi('/api/meta').then(meta=>{requirementManageEnabled=!!meta.requirementManageEnabled;if(page==='requirements'&&requirementMode==='detail')renderRequirements();}).catch(()=>{});
+void realApi('/api/meta').then(meta=>{requirementManageEnabled=!!meta.requirementManageEnabled;reqDisabledTools=meta.disabledTools||[];if(page==='requirements'&&requirementMode==='detail')renderRequirements();}).catch(()=>{});
 
 
 /* Server roles: administrators process requests; members submit them. */
@@ -242,9 +289,6 @@ renderRequirementForm=function(){
   originalRequirementForm();
   if(!window.ZHICAI_SERVER_MODE)return;
   $('.req-form-footer > span')?.remove();
-  const contact=$('#req-contact');
-  contact?.closest('.field')?.querySelector('.field-hint')?.remove();
-  if(contact&&!contact.value&&window.ZHICAI_ME?.email)contact.value=window.ZHICAI_ME.email;
 };
 const originalRequirementDetail=renderRequirementDetail;
 renderRequirementDetail=function(){

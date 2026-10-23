@@ -102,7 +102,7 @@ function handleTeamAction(button){
     `<p>${deleting?'确定删除空团队“'+esc(team.name)+'”？':team.selectable?'停用“'+esc(team.name)+'”后，新用户将不能申请加入；现有成员和账号仍可使用。':'启用“'+esc(team.name)+'”后，允许新用户申请加入。'}</p>`;
   showModal(title,body+'<p id="team-action-error" role="alert" class="form-errors hidden"></p>',rename?'保存':deleting?'删除':team.selectable?'停用':'启用',()=>{
     const name=rename?$('#team-edit-name').value.trim():'';
-    const error=$('#team-action-error'),confirmButton=$('#modal-confirm');
+    const error=$('#team-action-error'),confirmButton=$('#modal-foot [data-action="modal-confirm"]');
     if(rename&&!name){error.textContent='请填写团队名称';error.classList.remove('hidden');return false;}
     confirmButton.disabled=true;
     void (async()=>{

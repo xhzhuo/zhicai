@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 admin_router = APIRouter(prefix="/api/admin", tags=["admin"])
 PASSWORDS = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1)
 COOKIE_NAME = "__Host-zhicai_session"
-TOOLS = {"recommend", "combined", "bubble", "notes", "adgroups", "plaza"}
+TOOLS = {"recommend", "combined", "bubble", "notes", "adgroups", "plaza", "content"}
 EMAIL_RE = re.compile(r"^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,}$")
 
 

@@ -77,6 +77,20 @@ class RequirementFlowTests(unittest.TestCase):
         self.assertEqual(len(updated['events']), 2)
         self.assertEqual(updated['comments'][0]['content'], '需要按周汇总')
 
+    def test_existing_requests_do_not_require_contact(self):
+        for kind, fields in (
+            ('enhancement', {'description': '希望增加筛选', 'expected_result': '支持筛选'}),
+            ('problem', {'description': '运行后出现错误'}),
+        ):
+            with self.subTest(kind=kind):
+                response = self.client.post('/api/requirements', data={
+                    'kind': kind, 'title': '工具反馈', 'tool_id': 'keywords', **fields
+                })
+                self.assertEqual(response.status_code, 200, response.text)
+                detail = self.client.get(f"/api/requirements/{response.json()['id']}").json()
+                self.assertEqual(detail['contact'], '')
+                self.assertEqual(detail['description'], fields['description'])
+
     def test_existing_tool_request_reuses_tool_identity(self):
         payload = {
             'kind': 'enhancement', 'title': '扩展导出列', 'contact': 'owner@example.com',

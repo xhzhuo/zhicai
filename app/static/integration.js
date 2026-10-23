@@ -1,8 +1,8 @@
 /* The v0.4 visual shell remains intact. This runtime replaces its demo data flow. */
 'use strict';
 
-const realTools = {keywords: 'recommend', trend: 'combined', industry: 'bubble', notes: 'notes', adgroups:'adgroups', plaza:'plaza'};
-const fromRealTool = {recommend: 'keywords', combined: 'trend', bubble: 'industry', notes: 'notes', adgroups:'adgroups', plaza:'plaza'};
+const realTools = {keywords: 'recommend', trend: 'combined', industry: 'bubble', notes: 'notes', adgroups:'adgroups', plaza:'plaza', content:'content'};
+const fromRealTool = {recommend: 'keywords', combined: 'trend', bubble: 'industry', notes: 'notes', adgroups:'adgroups', plaza:'plaza', content:'content'};
 let toolLocationImages = {};
 const toolLocationPaths = {
   keywords: '小红书聚光 → 工具 → 搜索工具 → 关键词规划工具 → 以词推词 → 词根拓词',
@@ -26,7 +26,8 @@ let bubbleDraft = {
   yindexList:['readNum'], sizeIndex:'noteNum', regionCodes:'',
   brandIdList:'', spuIdList:'', seriesIdList:''
 };
-const realFooter = () => `<footer class="page-foot"><span>${I('shield')} ${window.ZHICAI_SERVER_MODE?'服务器运行 · 结果按个人权限保存':'本机运行 · 任务与结果保存在当前电脑'}</span><span>统一输入 · 数据交付 · 按需授权 / ZHICAI CLOUD</span></footer>`;
+const realFooter = () => `<footer class="page-foot brandless-foot"><span>统一输入 · 数据交付 · 按需授权 / ZHICAI</span></footer>`;
+historyFilters.status='all';
 connectionMethods.cookie='Cookie 导入';
 statusMap.queued=['blue','等待运行'];
 connectionPill=function(a){const item=accountStatuses[a.status]||accountStatuses.unverified;return `<span class="pill ${item[0]}"><span class="dot"></span>${item[1]}</span>`;};
@@ -99,10 +100,20 @@ for(const [id,definition] of Object.entries({
 }
 toolLocationPaths.adgroups='小红书聚光 → 竞价推广 → 标准投 → 广告组';
 toolLocationPaths.plaza='小红书聚光 → 合作广场';
+tools.content={title:'灵犀内容管理导出',desc:'按产品和查询日期获取笔记表现，自动翻页并核对数量，导出 Excel。',input:'灵犀账号 + 勾选产品 + 日期',output:'笔记信息、作者、种草消耗、CTR、曝光量、阅读量及采集记录',platform:'xhs',source:'灵犀',icon:'table',kind:'platform',unit:'产品',sample:'',columns:[]};
+allTools.push('content');configs.content=defaultConfig('content');services.lingxi.tools.push('content');
+toolLocationPaths.content='小红书灵犀 → 洞察 → 内容 → 内容管理';
 
 const oldRenderChrome = renderChrome;
 renderChrome = function () {
   oldRenderChrome();
+  // The tool picker is the single tool-switching control; global navigation stays visible.
+  $('#recent-tools').innerHTML='';
+  const count=$('#main-nav .count');
+  if(count)count.textContent=`${Object.keys(realTools).length} 可用`;
+  const sideName=window.ZHICAI_SERVER_MODE?user().name.split('@')[0]:user().name;
+  $('#side-user strong').textContent=sideName;
+  $('#side-user .avatar').textContent=sideName.slice(0,2).toUpperCase();
   $('#side-user small').textContent = `${user().team} · ${window.ZHICAI_SERVER_MODE?'已登录':'本机使用'}`;
   $('#identity').innerHTML = `<option value="${esc(currentUser)}">${esc(user().name)} · 当前用户</option>`;
   $('#identity').disabled=!!window.ZHICAI_SERVER_MODE;
@@ -122,27 +133,32 @@ openTool = function (id, record=null) {
   window.scrollTo(0,0);
 };
 
+function catalogCard(id) {
+  const t=tools[id],ready=!!realTools[id],allowed=ready&&(!window.ZHICAI_SERVER_MODE||can(id));
+  const path=toolLocationPaths[id]||(id==='notes'?'笔记公开页面':''), image=toolLocationImages[realTools[id]];
+  const steps=path.split(' → '), last=steps.pop();
+  const location=path?`<div class="catalog-location"><span class="catalog-location-label">${I('link','i14')}取数位置</span><p>${steps.map(step=>`${esc(step)} <span aria-hidden="true">›</span> `).join('')}<strong>${esc(last)}</strong></p></div>`:'';
+  const preview=image?`<button type="button" class="catalog-location-image" data-location-image="${id}" aria-label="放大查看${esc(t.title)}的取数位置"><span class="catalog-image-heading">平台取数位置${I('image','i14')}</span><img src="${esc(image)}" alt="${esc(t.title)}在平台中的取数位置" loading="lazy"><span class="catalog-image-caption">点击查看大图</span></button>`:`<div class="catalog-location-empty">${I(id==='notes'?'file':'image')}<span>${id==='notes'?'笔记公开页面':'暂无位置截图'}</span>${id==='notes'?'<small>通过上传的笔记链接读取</small>':''}</div>`;
+  return `<article class="tool-card ${ready?'':'tool-card-unavailable'}"><div class="catalog-card-info"><div class="catalog-card-heading">${platformBadge(t.platform)}<div class="catalog-card-titles"><div class="catalog-card-meta"><span>${esc(platforms[t.platform].name)} · ${esc(t.source)}</span><span class="pill ${allowed?'green':ready?'amber':''}">${allowed?'可用':ready?'未授权':'尚未接入'}</span></div><h2>${esc(t.title)}</h2></div></div><p class="desc">${esc(t.desc)}</p>${location}<div class="tool-card-foot"><div class="tool-spec"><span>输入</span><span>${esc(t.input)}</span><span>输出</span><span>${esc(t.output)}</span></div><button class="btn catalog-config" data-open-tool="${id}" ${allowed?'':'disabled'}>${allowed?'配置采集':ready?'无访问权限':'暂未开放'}${I('chevron','i14')}</button></div></div>${preview}</article>`;
+}
 renderCatalog = function () {
   const list = allTools.filter(id => (platform==='all'||tools[id].platform===platform)
     && (!catalogQuery||(tools[id].title+tools[id].source+tools[id].desc).includes(catalogQuery)));
   if(platform==='all')list.sort((a,b)=>Number(!!realTools[b])-Number(!!realTools[a]));
+  const ready=list.filter(id=>realTools[id]), pending=list.filter(id=>!realTools[id]);
   $('#main').innerHTML = `<div class="heading"><div><div class="eyebrow">DATA ACQUISITION</div><h1>工具中心</h1><p>选择平台与工具，填写参数，获取可下载的数据。</p></div><div class="heading-actions"><button class="btn" data-page="history">${I('clock','i16')}<span>运行记录</span></button></div></div>
     <section class="filter-bar" aria-label="按平台筛选工具"><div class="flex"><span class="filter-title">平台</span><div class="platforms">${platformChips()}</div></div><div class="search">${I('search','i14')}<input id="tool-search" type="search" aria-label="搜索工具" placeholder="搜索工具名称" value="${esc(catalogQuery)}"></div></section>
-    <div class="between catalog-meta"><span>共 ${list.length} 个工具 <span class="muted">· ${platform==='all'?'所有平台':platforms[platform].name}</span></span><span>已接入 ${Object.keys(realTools).length} 个采集流程</span></div>
-    <section class="catalog-grid">${list.map(id => { const t=tools[id],ready=!!realTools[id],allowed=ready&&(!window.ZHICAI_SERVER_MODE||can(id)); return `<article class="tool-card"><div class="between">${platformBadge(t.platform)}<span class="pill">${platforms[t.platform].name} · ${t.source}</span></div><h2>${t.title}</h2><p class="desc">${t.desc}</p><div class="tool-spec"><span>输入</span><span>${t.input}</span><span>输出</span><span title="${t.output}">${t.output}</span></div><div class="tool-card-foot"><span class="pill ${allowed?'green':'amber'}">${allowed?'可用':ready?'未授权':'尚未接入'}</span><button class="text-btn" data-open-tool="${id}" ${allowed?'':'disabled'}>${allowed?'配置采集':ready?'无访问权限':'暂无实际工具'}${I('chevron','i14')}</button></div></article>`; }).join('')}</section>
+    <div class="between catalog-meta"><span><strong>可用 ${ready.length} 个</strong> <span class="muted">· ${platform==='all'?'所有平台':platforms[platform].name}</span></span><span>共 ${list.length} 个工具</span></div>
+    ${ready.length?`<section class="catalog-grid" aria-label="已开放工具">${ready.map(catalogCard).join('')}</section>`:''}
+    ${pending.length?`<details class="catalog-pending" ${!ready.length||catalogQuery?'open':''}><summary>尚未开放的工具 <span class="pill">${pending.length}</span></summary><section class="catalog-grid" aria-label="尚未开放工具">${pending.map(catalogCard).join('')}</section></details>`:''}
     ${!list.length?emptyView('没有匹配的工具','试试切换平台或清空搜索条件。','search'):''}
-    <div class="catalog-note">${I('info','i16')}<span>标记“尚未接入”的工具暂不可运行。</span></div>${realFooter()}`;
+    ${realFooter()}`;
 };
 
-function accountListFor(id) { return accounts.filter(a => a.service === (id==='industry'?'lingxi':'jug')&&(!window.ZHICAI_SERVER_MODE||a.teamId===window.ZHICAI_ME?.teamId)); }
+function accountListFor(id) { return accounts.filter(a => a.service === (['industry','content'].includes(id)?'lingxi':'jug')&&(!window.ZHICAI_SERVER_MODE||a.teamId===window.ZHICAI_ME?.teamId)); }
 function connectionFor(id) {
   const list=accountListFor(id), selected=configs[id]?.accountId;
   return list.find(a=>a.id===selected)||list.find(a=>a.status!=='disabled')||list[0];
-}
-function renderToolLocation(id) {
-  if(id==='notes')return '';
-  const image=toolLocationImages[realTools[id]];
-  return `<section class="panel tool-location-card" aria-label="平台取数位置"><div class="tool-location-copy"><span class="tool-location-eyebrow">PLATFORM LOCATION</span><h2>平台取数位置</h2><p class="tool-location-path">${esc(toolLocationPaths[id])}</p><p class="tool-location-help">对照截图确认平台中的取数区域。</p></div><div class="tool-location-media">${image?`<button type="button" class="tool-location-preview" data-location-image="${id}" aria-label="放大查看${esc(tools[id].title)}的取数位置"><img src="${esc(image)}" alt="${esc(tools[id].title)}在平台中的取数位置" loading="lazy"><span>点击放大</span></button>`:`<div class="tool-location-placeholder">${I('image')}<strong>位置截图待补充</strong><span>收到该工具截图后显示在这里</span></div>`}</div></section>`;
 }
 renderTool = function () {
   if (!realTools[currentTool]) { page='catalog'; render(); return; }
@@ -150,9 +166,9 @@ renderTool = function () {
   const t=tools[currentTool], supported=allTools.filter(id=>realTools[id]&&(platform==='all'||tools[id].platform===platform));
   if (!supported.includes(currentTool)) platform=t.platform;
   const items=allTools.filter(id=>realTools[id]&&(platform==='all'||tools[id].platform===platform));
-  $('#main').innerHTML = `<div class="heading"><div><div class="flex" style="gap:11px"><span class="heading-icon">${I(t.icon)}</span><h1>${t.title}</h1><span class="pill green">实际工具</span></div><p>${t.desc}</p></div><div class="heading-actions"><button class="btn" data-page="catalog">${I('left','i16')}<span class="desktop-only">工具中心</span></button></div></div>
-    <div class="tool-switchbar"><label class="small muted" for="tool-platform">平台</label><select id="tool-platform"><option value="all" ${platform==='all'?'selected':''}>全部平台</option><option value="xhs" ${platform==='xhs'?'selected':''}>小红书</option></select><span class="separator"></span><label class="small muted" for="tool-picker">工具</label><select id="tool-picker">${items.map(id=>`<option value="${id}" ${id===currentTool?'selected':''}>${esc(tools[id].title)}</option>`).join('')}</select><span class="hint">填写参数 → 开始采集 → 下载结果</span></div>
-    ${renderToolLocation(currentTool)}<div class="workbench"><section class="panel config-panel"><div class="panel-head"><h2><span class="step">1</span>运行配置</h2><button class="text-btn" data-action="reset-config">重置</button></div><div id="config-body" class="config-body"></div><div class="config-footer"><div id="run-summary" class="run-summary"></div><button class="btn primary" id="run-button" data-action="start">${I('play','i16')}开始采集</button><div class="run-caption">${I('lock','i14')} 实际请求平台接口；结果保存在本机</div></div></section><section class="panel results" id="result-panel" aria-label="采集结果"></section></div>${realFooter()}`;
+  $('#main').innerHTML = `<div class="heading tool-heading"><div><div class="flex" style="gap:11px"><span class="heading-icon">${I(t.icon)}</span><h1>${t.title}</h1><span class="pill green">可用</span></div><p>${t.desc}</p></div><div class="heading-actions"></div></div>
+    <div class="tool-switchbar"><span class="pill">${esc(platforms[t.platform].name)} · ${esc(t.source)}</span><label class="small muted" for="tool-picker">切换工具</label><select id="tool-picker">${items.filter(id=>!window.ZHICAI_SERVER_MODE||can(id)).map(id=>`<option value="${id}" ${id===currentTool?'selected':''}>${esc(tools[id].title)}</option>`).join('')}</select></div>
+    <div class="workbench ${currentTool==='content'?'content-vertical':''}"><section class="panel config-panel"><div class="panel-head"><h2><span class="step">1</span>运行配置</h2><button class="text-btn" data-action="reset-config">重置</button></div><div id="config-body" class="config-body"></div><div class="config-footer"><div id="run-summary" class="run-summary"></div><button class="btn primary" id="run-button" data-action="start">${I('play','i16')}开始采集</button></div></section><section class="panel results" id="result-panel" aria-label="采集结果"></section></div>${realFooter()}`;
   renderConfig(); renderResult();
 };
 
@@ -238,11 +254,59 @@ function refreshPlazaConfigMeta(button,run,account){
   if($('#plaza-comments-note'))$('#plaza-comments-note').classList.toggle('hidden',!configs.plaza.collectComments);
 }
 
+
+function contentProductRows(text){
+  const rows=[], seen=new Set();
+  for(const line of String(text||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean)){
+    const match=line.match(/^(\d+)[,，\t]+(.+)$/);
+    if(!match)return {rows,error:'产品选择无效，请重新读取授权产品'};
+    if(seen.has(match[1]))return {rows,error:'产品清单中有重复的 SPU ID'};
+    seen.add(match[1]);rows.push({id:match[1],name:match[2].trim()});
+  }
+  return {rows,error:''};
+}
+function contentConfigBusy(){return !!configs.content.loading||['queued','running'].includes(realRuns.get(realSelected.content)?.status);}
+function contentSelectedRows(){return contentProductRows(configs.content.productsText).rows;}
+function setContentSelected(rows){
+  configs.content.productsText=rows.map(p=>`${p.id},${p.name}`).join('\n');
+}
+function toggleContentProduct(id,checked){
+  if(contentConfigBusy())return false;
+  const selected=contentSelectedRows(),product=(configs.content.productOptions||[]).find(p=>p.id===id);
+  if(!product)return false;
+  if(checked&&!selected.some(p=>p.id===id)){
+    if(selected.length>=20)return false;
+    selected.push(product);
+  }
+  setContentSelected(checked?selected:selected.filter(p=>p.id!==id));
+  return true;
+}
+function paintContentPicker(){
+  const list=$('#content-product-list');if(!list||currentTool!=='content')return;
+  const c=configs.content, options=c.productOptions||[], selected=contentSelectedRows(), ids=new Set(selected.map(p=>p.id));
+  const query=(c.productQuery||'').trim().toLowerCase(),matches=options.filter(p=>(p.name+' '+p.id).toLowerCase().includes(query));
+  const busy=contentConfigBusy();
+  list.innerHTML=matches.length?matches.map(p=>`<label class="content-product-option ${ids.has(p.id)?'is-selected':''}"><input type="checkbox" data-content-product="${esc(p.id)}" ${ids.has(p.id)?'checked':''} ${busy||selected.length>=20&&!ids.has(p.id)?'disabled':''}><span><b>${esc(p.name)}</b><small>SPU ID ${esc(p.id)}</small></span></label>`).join(''):`<div class="content-picker-empty">${options.length?'没有匹配产品，试试其他名称或编号。':'先读取授权产品，再勾选本次要采集的产品。'}</div>`;
+  if($('#content-selection-count'))$('#content-selection-count').textContent=`已选 ${selected.length} / 20 个 · 共 ${options.length} 个授权产品`;
+  if($('#content-selection-hint'))$('#content-selection-hint').textContent=selected.length>=20?'已达到 20 个上限，请先取消一个产品再选其他产品。':'最多选择 20 个，可按产品名称或 SPU ID 搜索。';
+  const clear=$('[data-content-clear]');if(clear)clear.disabled=busy||!selected.length;
+  const search=$('#content-product-search');if(search)search.disabled=busy||!options.length;
+}
+
 renderConfig = function () {
   if (!$('#config-body')) return;
   const id=currentTool, c=configs[id], account=connectionFor(id), busy=realRuns.get(realSelected[id])?.status==='running';
   let html=realAccountBox(id);
-  if(id==='adgroups'){
+  if(id==='content'){
+    html+=realField('date-start','查询日期<span class="required">*</span>',`<div class="dates"><input id="date-start" type="date" data-config="start" value="${esc(c.start)}" aria-label="开始日期"><span>至</span><input id="date-end" type="date" data-config="end" value="${esc(c.end)}" aria-label="结束日期"></div>`,'统计所选日期内的表现，不限制笔记发布时间。');
+    html+=`<section class="content-products-section field" aria-label="导出产品"><div class="content-product-label"><span>选择产品<span class="required">*</span></span><button type="button" class="text-btn" data-content-load>${c.loading?'正在读取…':'读取授权产品'}</button></div>
+      <p class="field-hint" id="content-load-state" role="status">${esc(c.productStatus||'读取当前品牌下的授权产品，再勾选需要采集的产品。')}</p>
+      <input id="content-product-search" type="search" aria-label="搜索产品" placeholder="搜索产品名称或 SPU ID" value="${esc(c.productQuery||'')}">
+      <div class="content-selection-toolbar"><span id="content-selection-count" role="status"></span><button type="button" class="text-btn" data-content-clear>清空已选</button></div>
+      <div id="content-product-list" class="content-product-list" role="group" aria-label="授权产品列表"></div>
+      <p id="content-selection-hint" class="field-hint"></p>
+      </section>`;
+  }else if(id==='adgroups'){
     html+=realField('adgroups-start','开始日期（可选）',`<input id="adgroups-start" type="date" value="${esc(c.apiStart||'')}" aria-describedby="adgroups-date-hint">`);
     html+=realField('adgroups-end','结束日期（可选）',`<input id="adgroups-end" type="date" value="${esc(c.apiEnd||'')}" aria-describedby="adgroups-date-hint">`);
     html+=`<p id="adgroups-date-hint" class="field-hint">日期留空默认今天；指定日期时请同时填写开始和结束日期。自动获取所选账号的全部广告组。</p><div id="adgroup-link-state" class="adgroup-link-state" role="status" aria-live="polite"></div>`;
@@ -270,8 +334,11 @@ renderConfig = function () {
     html+=realField('size-axis','气泡大小',realSelect('size-axis',[['noteNum','平均有曝光笔记数'],['noteIncreaseNum','新增笔记数']],bubbleDraft.sizeIndex));
     html+=`<details class="run-details"><summary>高级筛选（可留空）</summary>${[['regionCodes','地域 code，空白为全国'],['brandIdList','品牌 ID'],['spuIdList','SPU ID'],['seriesIdList','系列 ID']].map(([key,label])=>realField(key,label,`<input id="${key}" value="${esc(bubbleDraft[key])}" placeholder="多个值用逗号分隔">`)).join('')}</details>`;
   }
-  html+=`<div class="field"><div class="field-label"><span>交付内容</span><span class="pill">${id==='notes'?'Excel + ZIP':['industry','adgroups','plaza'].includes(id)?'Excel':'CSV'}</span></div><div class="field-hint" style="border:1px solid var(--line);border-radius:6px;padding:9px 10px;background:#fafcff">${id==='plaza'?`<span id="plaza-delivery">${esc(plazaDeliveryText())}</span>`:esc(tools[id].output)}<br>失败项保留原因，不填充模拟值。</div></div><div id="config-errors" class="form-errors hidden" role="alert"></div>`;
+  if(id!=='content')html+=`<div class="field"><div class="field-label"><span>交付内容</span><span class="pill">${id==='notes'?'Excel + ZIP':['industry','adgroups','plaza','content'].includes(id)?'Excel':'CSV'}</span></div><div class="field-hint" style="border:1px solid var(--line);border-radius:6px;padding:9px 10px;background:#fafcff">${id==='plaza'?`<span id="plaza-delivery">${esc(plazaDeliveryText())}</span>`:esc(tools[id].output)}<br>失败项保留原因，不填充模拟值。</div></div>`;
+  if(id==='content')html+='<div class="content-output-note">Excel · 内容数据 + 采集记录</div>';
+  html+='<div id="config-errors" class="form-errors hidden" role="alert"></div>';
   $('#config-body').innerHTML=html;
+  if(id==='content')paintContentPicker();
   refreshConfigMeta();
   if(id==='adgroups')scheduleAdgroupPreview();
 };
@@ -284,6 +351,22 @@ refreshConfigMeta = function () {
   if($('#input-meta')) $('#input-meta').textContent=`已识别 ${count} 个词根`;
   $('#run-summary').textContent=id==='notes'?(count?'已读取 1 个 Excel 文件':'等待上传 .xlsx 文件'):id==='industry'?`${count} 个行业 · ${bubbleDraft.yindexList.length} 个 Y 轴指标 · Excel 文件`:`${count} 个词根 · CSV 文件`;
   const blocked=!account||account.status==='disabled'||(id==='notes'&&(!notesUploadFile||!notesSheetName));
+  if(id==='content'){
+    const parsed=contentProductRows(configs.content.productsText),selected=parsed.rows.length;
+    const busy=contentConfigBusy(),start=$('#date-start')?.value,end=$('#date-end')?.value;
+    const reason=busy?(configs.content.loading?'正在读取授权产品，请稍候。':'任务正在运行。'):blocked?'请先选择启用的灵犀账号。':parsed.error||(!selected?'请至少选择 1 个产品。':selected>20?'已超过 20 个，请减少选择。':!/^\d+$/.test(configs.content.brandUserId||'')?'请先读取授权产品。':!start||!end?'请选择开始和结束日期。':start>end?'开始日期不能晚于结束日期。':'');
+    $('#run-summary').textContent=`已选 ${selected} / 20 个产品 · Excel${reason?' · '+reason:''}`;
+    $$('#date-start,#date-end,#run-account,[data-content-load],[data-content-product],[data-content-clear],#content-product-search').forEach(el=>{
+      if(el.matches('[data-content-product]'))el.disabled=busy||selected>=20&&!el.checked;
+      else if(el.matches('[data-content-clear]'))el.disabled=busy||!selected;
+      else if(el.id==='content-product-search')el.disabled=busy||!configs.content.productOptions?.length;
+      else el.disabled=busy;
+    });
+    const reset=$('.config-panel [data-action="reset-config"]');if(reset)reset.disabled=busy;
+    button.disabled=!!reason;
+    button.innerHTML=busy?'<span class="spinner"></span> 正在处理':I('play','i16')+'开始采集';
+    return;
+  }
   if(id==='adgroups'){
     $('#run-summary').textContent='广告组信息 · Excel';
     paintAdgroupPreview();
@@ -300,6 +383,21 @@ refreshConfigMeta = function () {
 
 function realError(message) { const box=$('#config-errors'); if(box){box.textContent=message;box.classList.remove('hidden');} toast(message,'alert'); }
 function collectRealParams(id) {
+  if(id==='content'){
+    const c=configs.content;
+    c.brandUserId=String(c.brandUserId||'').trim();
+    c.start=$('#date-start').value;c.end=$('#date-end').value;
+    const products=c.productsText.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).map(line=>{
+      const match=line.match(/^(\d+)[,，\t]+(.+)$/);
+      if(!match)throw new Error('产品清单每行填写：SPU ID,产品名称');
+      return {id:match[1],name:match[2].trim()};
+    });
+    if(products.length>20)throw new Error('每次最多选择 20 个产品');
+    if(!/^\d+$/.test(c.brandUserId))throw new Error('请先读取授权产品');
+    if(!products.length)throw new Error('请至少选择 1 个产品');
+    if(!c.start||!c.end||c.start>c.end)throw new Error('请选择有效的查询日期范围');
+    return {brandUserId:c.brandUserId,products,start:c.start,end:c.end};
+  }
   if(id==='adgroups'){
     const start=$('#adgroups-start').value,end=$('#adgroups-end').value;
     if(!!start!==!!end)throw new Error('请同时选择开始日期和结束日期，或全部留空使用今天。');
@@ -372,14 +470,16 @@ renderResult = function () {
     body=`<div class="notice"><span>任务 <span class="mono">${esc(run.id.slice(0,8))}</span> · ${esc(run.created.replace('T',' ').slice(0,19))}<br>来源：小红书 / ${esc(tools[currentTool].source)} · 结果来自实际平台接口</span></div>
       ${busy?`<div class="run-progress"><div class="between"><span>${esc(run.stage||'正在采集')} · 已处理 ${run.processed} / ${run.total} 项</span><button class="text-btn" data-real-cancel="${run.id}">取消任务</button></div>${run.counts?`<div class="field-hint">成功 ${run.counts.success} · 部分成功 ${run.counts.partial} · 失败 ${run.counts.failed}</div>`:''}<div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div></div>`:''}
       <div class="run-info-line">${statusPill(run.status)}<span>数据 <strong>${number(run.rowCount)}</strong> 行</span><span class="${run.failures.length?'failed':''}">失败 ${run.failures.length} 项</span></div>
-      <div class="result-toolbar"><div><h3>数据明细</h3><small>${rows.length?(currentTool==='notes'?'预览前 30 行；Excel 保留每条笔记的状态和错误原因':'预览前 30 行，下载含所有成功结果'):'暂无结果'}</small></div><div class="flex wrap" style="gap:6px">${(run.rowCount||(['adgroups','plaza'].includes(currentTool)&&run.outputReady))&&!busy&&(!['adgroups','plaza'].includes(currentTool)||run.outputReady)?`<a class="btn primary" href="/api/runs/${run.id}/download">${I('download','i16')}${currentTool==='adgroups'?'导出已采集数据':currentTool==='notes'?'下载结果 Excel':`下载${run.status==='partial'?'成功结果':'完整结果'}`}</a>${currentTool==='notes'&&run.coverCount?`<a class="btn" href="/api/runs/${run.id}/assets">${I('download','i16')}下载封面素材包（${run.coverCount}）</a>`:''}`:'<button class="btn" disabled>完成后下载</button>'}</div></div>
+      <div class="result-toolbar"><div><h3>数据明细</h3><small>${rows.length?(currentTool==='notes'?'预览前 30 行；Excel 保留每条笔记的状态和错误原因':'预览前 30 行，下载含所有成功结果'):'暂无结果'}</small></div><div class="flex wrap" style="gap:6px">${(run.rowCount||(['adgroups','plaza','content'].includes(currentTool)&&run.outputReady))&&!busy&&(!['adgroups','plaza','content'].includes(currentTool)||run.outputReady)?`<a class="btn primary" href="/api/runs/${run.id}/download">${I('download','i16')}${currentTool==='content'&&run.status==='failed'?'下载采集记录':currentTool==='adgroups'?'导出已采集数据':currentTool==='notes'?'下载结果 Excel':`下载${run.status==='partial'?'成功结果':'完整结果'}`}</a>${currentTool==='notes'&&run.coverCount?`<a class="btn" href="/api/runs/${run.id}/assets">${I('download','i16')}下载封面素材包（${run.coverCount}）</a>`:''}`:'<button class="btn" disabled>完成后下载</button>'}</div></div>
       ${currentTool==='adgroups'&&run.dataSource==='api'?`<div class="notice">统计日期：${esc(run.params.start)} 至 ${esc(run.params.end)} · 已自动获取全部分页</div>`:''}
+      ${currentTool==='content'&&run.duplicateRowCount?`<div class="notice amber" role="status">数据提示：${number(run.duplicateIdCount)} 个笔记 ID 重复，涉及 ${number(run.duplicateRowCount)} 行。已保留平台原始记录，未去重或合并指标；请在 Excel 的“记录提示”和“采集记录”中核对。</div>`:''}
       ${rows.length?realTable(columns,rows):emptyView(busy?'正在等待数据':'暂无数据',busy?'完成第一批请求后会显示。':'请查看失败原因或调整查询条件。')}
       ${run.sheets.length?`<div class="table-caption">Excel 工作表：${run.sheets.map(s=>`${esc(s.name)}（${s.count} 行）`).join('、')}</div>`:`<div class="table-caption">显示 ${rows.length} / ${run.rowCount} 行 · 来自平台接口</div>`}
       ${run.failures.length?`<details class="run-details"><summary>失败明细（${run.failures.length} 项）</summary><ul>${run.failures.map(f=>`<li>${esc(f.item)}：${esc(f.error)}</li>`).join('')}</ul></details>`:''}
-      <details class="run-details"><summary>运行说明</summary><dl><dt>查询参数</dt><dd>${esc(JSON.stringify(run.params))}</dd><dt>完成时间</dt><dd>${esc(run.ended||'运行中')}</dd><dt>保存位置</dt><dd>本机工作台运行记录</dd></dl></details>`;
+      <details class="run-details"><summary>运行说明</summary><dl><dt>查询参数</dt><dd>${esc(JSON.stringify(run.params))}</dd><dt>完成时间</dt><dd>${esc(run.ended||'运行中')}</dd></dl></details>`;
   }
-  $('#result-panel').innerHTML=`<div class="panel-head"><h2><span class="step">2</span>采集结果</h2>${run?statusPill(run.status):'<span class="pill">等待运行</span>'}</div><div class="result-body">${body}</div><div class="result-foot"><span>数据获取 · 明细预览</span><span>智采 cloud</span></div>`;
+  $('#result-panel').innerHTML=`<div class="panel-head"><h2><span class="step">2</span>采集结果</h2>${run?statusPill(run.status):'<span class="pill">等待运行</span>'}</div><div class="result-body">${body}</div><div class="result-foot"><span>数据获取 · 明细预览</span><span>智采</span></div>`;
+  $('#result-panel').classList.toggle('results-empty',!run);
 };
 function realTable(columns,rows){return `<div class="data-wrap"><table class="data-table"><thead><tr><th class="row-index">#</th>${columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.map((row,i)=>`<tr><td class="row-index">${i+1}</td>${row.map(v=>`<td title="${esc(v)}">${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;}
 
@@ -389,23 +489,25 @@ async function fetchHistory() {
 }
 renderHistory = function () {
   const f=historyFilters, available=allTools.filter(id=>realTools[id]&&(f.platform==='all'||tools[id].platform===f.platform));
+  f.status=f.status||'all';
   if(!available.includes(f.tool))f.tool='all';
   const nowDate=new Date(), dateStart=f.period==='today'?localDate(nowDate):['7','30'].includes(f.period)?localDate(new Date(Date.now()-(Number(f.period)-1)*86400000)):f.period==='custom'?f.start:'';
   const dateEnd=f.period==='custom'?f.end:'';
   const invalid=!!(dateStart&&dateEnd&&dateStart>dateEnd);
-  const list=invalid?[]:realHistory.filter(r=>{const id=fromRealTool[r.tool];return id&&(f.platform==='all'||tools[id].platform===f.platform)&&(f.tool==='all'||id===f.tool)&&(!dateStart||r.created.slice(0,10)>=dateStart)&&(!dateEnd||r.created.slice(0,10)<=dateEnd);});
-  const active=f.platform!=='all'||f.tool!=='all'||f.period!=='all';
+  const list=invalid?[]:realHistory.filter(r=>{const id=fromRealTool[r.tool];return id&&(f.platform==='all'||tools[id].platform===f.platform)&&(f.tool==='all'||id===f.tool)&&(f.status==='all'||r.status===f.status)&&(!dateStart||r.created.slice(0,10)>=dateStart)&&(!dateEnd||r.created.slice(0,10)<=dateEnd);});
+  const active=f.platform!=='all'||f.tool!=='all'||f.period!=='all'||f.status!=='all';
   $('#main').innerHTML=`<div class="heading"><div><div class="eyebrow">RUN HISTORY</div><h1>运行记录</h1><p>按平台、工具和创建时间，找回采集结果。</p></div><div class="heading-actions"><button class="btn primary" data-page="catalog">${I('plus','i16')}新建采集</button></div></div>
   <section class="panel history-filter-panel"><div class="history-filter-grid">
   ${realField('history-platform','平台',realSelect('history-platform',[['all','全部平台'],['xhs','小红书']],f.platform))}
   ${realField('history-tool','工具',realSelect('history-tool',[['all','全部工具'],...available.map(id=>[id,tools[id].title])],f.tool))}
   ${realField('history-period','创建时间',realSelect('history-period',[['all','全部时间'],['today','今天'],['7','近 7 天'],['30','近 30 天'],['custom','自定义日期']],f.period))}
+  ${realField('history-status','状态',realSelect('history-status',[['all','全部状态'],['queued','等待运行'],['running','运行中'],['complete','全部完成'],['partial','部分完成'],['failed','运行失败'],['stopped','已停止']],f.status))}
   <button class="btn ghost reset-history" data-action="reset-history" ${active?'':'disabled'}>${I('refresh','i14')}重置筛选</button></div>
   ${f.period==='custom'?`<div class="history-custom"><label for="history-start">起止日期</label><input id="history-start" type="date" value="${esc(f.start)}"><span>至</span><input id="history-end" type="date" value="${esc(f.end)}"><small>可只填一端</small></div>`:''}
   <div class="history-filter-hint ${invalid?'error':''}">${I(invalid?'alert':'info','i14')}${invalid?'开始日期不能晚于结束日期。':'依据任务创建时间筛选，不是数据查询日期。'}</div></section>
   <section class="panel history-panel"><div class="history-head"><h2>我的任务 <span class="pill">${list.length}</span></h2><p>${active?'匹配 '+list.length+' / '+realHistory.length+' 条':'共 '+realHistory.length+' 条'}记录</p></div>
-  ${list.length?`<div class="history-table-scroll"><table class="data-table history-table"><thead><tr><th>平台</th><th>工具 / 任务</th><th>平台账号</th><th>创建时间</th><th>状态</th><th>处理结果</th><th>操作</th></tr></thead><tbody>${list.map(r=>`<tr><td><div class="flex">${platformBadge('xhs')}<span>小红书</span></div></td><td><div class="history-tool"><div><b>${esc(tools[fromRealTool[r.tool]].title)}</b><small>${esc(r.id.slice(0,8))}</small></div></div></td><td>${esc(r.accountAlias||'—')}</td><td class="history-date">${esc(r.created.replace('T',' ').slice(0,19))}</td><td>${statusPill(r.status)}</td><td>${r.rowCount} 行 / ${r.failureCount} 失败</td><td><div class="history-actions"><button class="text-btn" data-real-view="${r.id}">查看</button>${(r.rowCount||r.outputReady)&&!['queued','running'].includes(r.status)&&(!['adgroups','plaza'].includes(r.tool)||r.outputReady)?`<a class="text-btn" href="/api/runs/${r.id}/download">${I('download','i14')}下载</a>`:''}</div></td></tr>`).join('')}</tbody></table></div>`:emptyView(invalid?'请调整日期范围':realHistory.length?'没有匹配的运行记录':'还没有运行记录',invalid?'开始日期需要早于结束日期。':realHistory.length?'调整筛选条件。':'从工具中心开始采集。','clock')}</section>
-  <div class="catalog-note">${I('info','i16')}<span>运行记录保存在本机服务端，关闭网页后仍可找回已完成的结果。</span></div>${realFooter()}`;
+  ${list.length?`<div class="history-table-scroll"><table class="data-table history-table"><thead><tr><th>平台</th><th>工具 / 任务</th><th>平台账号</th><th>创建时间</th><th>状态</th><th>处理结果</th><th>操作</th></tr></thead><tbody>${list.map(r=>`<tr><td><div class="flex">${platformBadge('xhs')}<span>小红书</span></div></td><td><div class="history-tool"><div><b>${esc(tools[fromRealTool[r.tool]].title)}</b><small>${esc(r.id.slice(0,8))}</small></div></div></td><td>${esc(r.accountAlias||'—')}</td><td class="history-date">${esc(r.created.replace('T',' ').slice(0,19))}</td><td>${statusPill(r.status)}</td><td>${r.rowCount} 行 / ${r.failureCount} 失败</td><td><div class="history-actions"><button class="text-btn" data-real-view="${r.id}">查看详情</button>${(r.rowCount||r.outputReady)&&!['queued','running'].includes(r.status)&&(!['adgroups','plaza','content'].includes(r.tool)||r.outputReady)?`<a class="text-btn" href="/api/runs/${r.id}/download">${I('download','i14')}下载</a>`:''}</div></td></tr>`).join('')}</tbody></table></div>`:emptyView(invalid?'请调整日期范围':realHistory.length?'没有匹配的运行记录':'还没有运行记录',invalid?'开始日期需要早于结束日期。':realHistory.length?'调整筛选条件。':'从工具中心开始采集。','clock')}</section>
+  ${realFooter()}`;
 };
 
 const oldRenderAccounts=renderAccounts;
@@ -483,7 +585,7 @@ clickActions['reset-config']=()=>{if(currentTool==='plaza'&&plazaConfigBusy())re
 clickActions.template=()=>saveFile('﻿"词根"\r\n',`${tools[currentTool].title}_输入模板.csv`);
 clickActions['close-account']=closeAccountEditor;
 clickActions['add-account']=()=>openAccountEditor(null);
-clickActions['reset-history']=()=>{historyFilters={platform:'all',tool:'all',period:'all',start:'',end:''};renderHistory();};
+clickActions['reset-history']=()=>{historyFilters={platform:'all',tool:'all',period:'all',status:'all',start:'',end:''};renderHistory();};
 clickActions['add-member']=()=>toast('本机模式仅当前电脑用户；团队成员需要独立登录服务。','info');
 clickActions['save-permissions']=()=>toast('本机模式只识别当前电脑用户。','info');
 
@@ -505,6 +607,7 @@ document.addEventListener('click',async event=>{
 });
 document.addEventListener('change',async event=>{
   const el=event.target;
+  if(el.id==='history-status'){historyFilters.status=el.value;renderHistory();return;}
   if(el.id==='note-file'){void inspectNotesUpload(el.files?.[0]||null);return;}
   if(el.id==='adgroups-start'||el.id==='adgroups-end'){configs.adgroups[el.id==='adgroups-start'?'apiStart':'apiEnd']=el.value;scheduleAdgroupPreview();return;}
   if(el.name==='plaza-content'){
@@ -523,6 +626,44 @@ document.addEventListener('change',async event=>{
   if(el.dataset.yAxis)bubbleDraft.yindexList=$$('[data-y-axis]:checked').map(x=>x.dataset.yAxis);
 });
 document.addEventListener('input',event=>{if(event.target.id==='note-limit')refreshConfigMeta();});
+document.addEventListener('input',event=>{
+  if(currentTool!=='content')return;
+  const el=event.target,c=configs.content;
+  if(el.id==='content-product-search'){c.productQuery=el.value;paintContentPicker();return;}
+  if(['date-start','date-end'].includes(el.id))refreshConfigMeta();
+});
+document.addEventListener('change',event=>{
+  if(currentTool!=='content')return;
+  const el=event.target;
+  if(el.dataset.contentProduct){
+    if(!toggleContentProduct(el.dataset.contentProduct,el.checked))el.checked=false;
+    paintContentPicker();refreshConfigMeta();return;
+  }
+  if(el.id==='run-account'){
+    Object.assign(configs.content,{brandUserId:'',productsText:'',productOptions:[],productQuery:'',productStatus:'账号已切换，请重新读取授权产品。',loading:false});
+    renderConfig();
+  }
+});
+document.addEventListener('click',async event=>{
+  if(event.target.closest('[data-content-clear]')){
+    if(!contentConfigBusy()){setContentSelected([]);paintContentPicker();refreshConfigMeta();}return;
+  }
+  const button=event.target.closest('[data-content-load]');if(!button||contentConfigBusy())return;
+  const account=connectionFor('content');if(!account)return realError('请先选择灵犀账号');
+  const accountId=account.id,c=configs.content;
+  c.loading=true;c.productStatus='正在读取当前品牌与授权产品…';
+  $('#content-load-state').textContent=c.productStatus;refreshConfigMeta();
+  try{
+    const data=await realApi('/api/content/options',{method:'POST',body:JSON.stringify({accountId})});
+    if(configs.content!==c||connectionFor('content')?.id!==accountId)return;
+    const valid=new Set(data.products.map(p=>p.id));
+    const selected=c.productAccountId===accountId?contentProductRows(c.productsText).rows.filter(p=>valid.has(p.id)).slice(0,20):[];
+    c.brandUserId=data.brandUserId;c.productOptions=data.products;c.productAccountId=accountId;c.productQuery='';
+    c.productsText=selected.map(p=>`${p.id},${p.name}`).join('\n');
+    c.productStatus=`已读取 ${data.products.length} 个授权产品，请勾选本次需要的产品。`;
+  }catch(error){c.productStatus=error.message;}
+  finally{c.loading=false;if(currentTool==='content'&&configs.content===c)renderConfig();}
+});
 
 persist=function(){};
 $('#modal').addEventListener('close',()=>$('#modal').classList.remove('location-modal'));

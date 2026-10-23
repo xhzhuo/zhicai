@@ -40,6 +40,7 @@ from . import auth
 from .task_control import TaskControl
 from . import platform_collectors
 from . import adgroups_api
+from . import content_api
 
 
 ROOT = Path(__file__).resolve().parent
@@ -56,6 +57,7 @@ SERVICES = {
     "lingxi": {"name": "灵犀", "url": "https://idea.xiaohongshu.com/"},
 }
 TOOLS = {
+    "content": {"name": "灵犀内容管理导出", "service": "lingxi", "format": "xlsx"},
     "adgroups": {"name": "广告组信息导出", "service": "jug", "format": "xlsx"},
     "plaza": {"name": "合作广场笔记采集", "service": "jug", "format": "xlsx"},
     "recommend": {"name": "关键词推荐", "service": "jug", "format": "csv"},
@@ -272,6 +274,8 @@ def parse_lines(value: Any, label: str, limit: int = 30) -> list[str]:
 def validate_params(tool: str, raw: dict[str, Any]) -> dict[str, Any]:
     if tool not in TOOLS:
         raise ValueError("未知工具")
+    if tool == "content":
+        return content_api.validate(raw)
     if tool == "adgroups":
         return adgroups_api.validate_dates(raw)
     if tool == "plaza":
@@ -421,7 +425,7 @@ async def ensure_page(service: str, show_login: bool = False, headless: bool | N
     return page
 
 
-async def platform_post(service: str, path: str, body: dict[str, Any], *, direct: bool = False) -> Any:
+async def platform_post(service: str, path: str, body: dict[str, Any], *, direct: bool = False, method: str = 'POST') -> Any:
     if service == "jug" and (auth.server_mode() or direct):
         account = account_get(active_account.get() or service)
         context = jug_page_link(account.get("pageLink", ""))
@@ -450,17 +454,17 @@ async def platform_post(service: str, path: str, body: dict[str, Any], *, direct
     expected = SERVICES[service]["url"].rstrip("/")
     if not page.url.startswith(expected):
         await page.goto(expected, wait_until="domcontentloaded", timeout=30000)
-    result = await page.evaluate("""async ({path, body}) => {
+    result = await page.evaluate("""async ({path, body, method}) => {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30000);
       try {
-        const res = await fetch(path, {method:'POST', credentials:'include',
-          headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal:controller.signal});
+        const res = await fetch(path, {method, credentials:'include',
+          headers:{'Content-Type':'application/json'}, ...(method==='GET'?{}:{body:JSON.stringify(body)}), signal:controller.signal});
         const text = await res.text();
         let json; try { json = JSON.parse(text); } catch { throw new Error(`接口未返回 JSON (HTTP ${res.status})，请检查登录状态`); }
         return {status:res.status, json};
       } finally { clearTimeout(timeout); }
-    }""", {"path": path, "body": body})
+    }""", {"path": path, "body": body, "method": method})
     if result["status"] == 401:
         account_modify(active_account.get() or service, status="expired", statusReason="http_401")
         raise AuthenticationError("平台返回 HTTP 401，当前登录未获授权")
@@ -541,6 +545,13 @@ async def execute(run_id: str) -> None:
     try:
         async with locks[service]:
             run["status"] = "running"; save_run(run)
+            if tool == "content":
+                async def post(path, body):
+                    return await platform_post('lingxi', path, body)
+                folder = RUNS / run['id']
+                folder.mkdir(exist_ok=True)
+                await content_api.collect(run, post, folder / '结果.xlsx', save_run, MAX_OUTPUT_BYTES)
+                return
             if tool in ("recommend", "combined"):
                 keywords: set[str] = set()
                 for root in params["roots"]:
@@ -1360,6 +1371,36 @@ async def create_notes_run(request: Request, file: UploadFile = File(...),
     return {"id": enqueue_note_run(user, params)}
 
 
+class ContentOptionsInput(BaseModel):
+    accountId: str
+
+
+@app.post('/api/content/options')
+async def content_options(payload: ContentOptionsInput, request: Request):
+    assert_local(request)
+    user = auth.require_tool(request, 'content')
+    account = account_get(payload.accountId)
+    if auth.server_mode() and account.get('teamId') != user['team_id']:
+        raise HTTPException(403, '只能使用本团队的平台账号')
+    if account['service'] != 'lingxi' or account['disabled']:
+        raise HTTPException(422, '请选择启用的灵犀账号')
+    if locks['lingxi'].locked():
+        raise HTTPException(409, '灵犀正在取数，请稍后读取产品')
+    token = active_account.set(account['id'])
+    try:
+        async with locks['lingxi']:
+            brands = await platform_post('lingxi', '/api/idea/brandView/brandList?keyword=&pageNum=1&pageSize=20', {}, method='GET')
+            products = await platform_post('lingxi', '/api/idea/databank/crowdasset/list/spu', {}, method='GET')
+            brand, items = content_api.parse_options(brands, products)
+            return {'brandUserId': brand, 'products': items}
+    except (RuntimeError, ValueError) as exc:
+        raise HTTPException(422, str(exc)) from exc
+    finally:
+        active_account.reset(token)
+        if auth.server_mode():
+            await close_account_context(account['id'])
+
+
 @app.post("/api/runs")
 async def create_run(payload: RunInput, request: Request) -> dict[str, str]:
     assert_local(request)
@@ -1382,8 +1423,8 @@ async def create_run(payload: RunInput, request: Request) -> dict[str, str]:
         raise HTTPException(422, "所选账号不适用于此工具或已停用")
     run_id = uuid.uuid4().hex
     columns = {"recommend": ["日期", "词根", "关键词", "月搜索指数", "词根内排名"],
-               "combined": ["keyword", "date", "searchNum"], "bubble": []}[tool]
-    total = len(params.get("roots", [])) if tool != "bubble" else len(params["taxonomies"]) * len(params["yindexList"])
+               "combined": ["keyword", "date", "searchNum"], "bubble": [], "content": content_api.HEADERS}[tool]
+    total = len(params['products']) if tool == 'content' else len(params.get("roots", [])) if tool != "bubble" else len(params["taxonomies"]) * len(params["yindexList"])
     run = {"id": run_id, "tool": tool, "params": params, "created": now(), "ended": None,
            "status": "queued", "processed": 0, "total": total, "columns": columns,
            "rows": [], "sheets": [], "failures": [], "accountId": account["id"], "accountAlias": account["alias"],
@@ -1445,7 +1486,7 @@ def download(run_id: str, request: Request) -> Response:
         raise HTTPException(404, "找不到运行记录")
     if run["status"] in ("queued", "running"):
         raise HTTPException(409, "任务仍在运行，完成后可下载结果")
-    if run["tool"] in {"notes", "adgroups", "plaza"}:
+    if run["tool"] in {"notes", "adgroups", "plaza", "content"}:
         output = Path(run.get("outputFile", ""))
         if not output.is_file() or output.parent.resolve() != (RUNS / run_id).resolve():
             raise HTTPException(404, "结果文件不存在")

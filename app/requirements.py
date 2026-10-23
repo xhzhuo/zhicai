@@ -22,9 +22,9 @@ from . import auth
 
 DEFAULT_DB = Path(__file__).resolve().parent / "data" / "requirements.sqlite3"
 DB_PATH = Path(os.environ.get("ZHICAI_REQUIREMENTS_DB", str(DEFAULT_DB))).resolve()
-KINDS = {"new_tool", "enhancement", "problem"}
+KINDS = {"new_tool", "enhancement", "problem", "tool_access"}
 STATUSES = {"submitted", "needs_info", "evaluating", "scheduled", "in_progress", "done", "declined"}
-TOOL_IDS = {"trend", "keywords", "notes", "industry", "baidu", "douyin", "product", "shop"}
+TOOL_IDS = {"trend", "keywords", "notes", "industry", "baidu", "douyin", "product", "shop", "adgroups", "plaza", "content"}
 ALLOWED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".pdf", ".csv", ".xlsx"}
 MAX_FILE_BYTES = 10 * 1024 * 1024
 MAX_FILES = 3
@@ -216,14 +216,28 @@ def require_requirement(request: Request, record: dict) -> None:
         raise HTTPException(404, "找不到需求")
 
 
+def tool_source(tool_id: str, require_available: bool = False) -> tuple[str, str, str]:
+    from .main import TOOLS, SERVICES, DISABLED_TOOLS
+    api_id = {"trend": "combined", "keywords": "recommend", "industry": "bubble"}.get(tool_id, tool_id)
+    if tool_id not in TOOL_IDS:
+        raise HTTPException(422, "所选工具不存在")
+    if require_available and (api_id not in TOOLS or api_id in DISABLED_TOOLS):
+        raise HTTPException(422, "该工具暂未开放权限申请")
+    if api_id in TOOLS:
+        service = TOOLS[api_id]["service"]
+        return "xhs", SERVICES.get(service, {"name": "小红书内容端"})["name"], api_id
+    platform, service = {"baidu": ("baidu", "百度指数"), "douyin": ("douyin", "抖音算数"),
+                         "product": ("tmall", "生意参谋"), "shop": ("tmall", "生意参谋")}[tool_id]
+    return platform, service, api_id
+
+
 @router.post("")
 async def create_requirement(
     request: Request,
     kind: str = Form(...),
     title: str = Form(...),
-    contact: str = Form(""),
     description: str = Form(""),
-    expected_result: str = Form(...),
+    expected_result: str = Form(""),
     platform: str = Form(""),
     service: str = Form(""),
     tool_id: str = Form(""),
@@ -248,13 +262,13 @@ async def create_requirement(
         "service": clean(service, "具体服务", 80),
         "tool_id": clean(tool_id, "工具", 30),
         "run_id": clean(run_id, "任务编号", 32),
-        "contact": user["email"] if auth.server_mode() and kind == "new_tool" else clean(contact, "联系方式", 120, kind != "new_tool"),
-        "description": clean(description, "业务目的或问题描述", 4000, kind != "new_tool"),
+        "contact": "",
+        "description": clean(description, "发生了什么" if kind == "problem" else "需求描述", 4000, kind in {"enhancement", "problem"}),
         "source_location": clean(source_location, "数据位置", 1000),
         "desired_data": clean(desired_data, "需要的数据", 4000),
-        "expected_result": clean(expected_result, "期望结果", 4000, True),
+        "expected_result": clean(expected_result, "期望结果", 4000, kind in {"new_tool", "enhancement"}) if kind in {"new_tool", "enhancement"} else "",
         "input_conditions": clean(input_conditions, "输入条件", 2000),
-        "usage_frequency": clean(usage_frequency, "使用频率", 80),
+        "usage_frequency": clean(usage_frequency, "使用频率", 80) if kind == "new_tool" else "",
         "needed_by": clean(needed_by, "期望完成日期", 10),
     }
     if values["tool_id"] and values["tool_id"] not in TOOL_IDS:
@@ -266,8 +280,14 @@ async def create_requirement(
             date.fromisoformat(values["needed_by"])
         except ValueError as exc:
             raise HTTPException(422, "期望完成日期格式无效") from exc
-    if kind in ("enhancement", "problem") and not values["tool_id"]:
-        raise HTTPException(422, "请选择现有工具")
+    if kind != "new_tool":
+        if not values["tool_id"]:
+            raise HTTPException(422, "请选择问题工具" if kind == "problem" else "请选择工具")
+        values["platform"], values["service"], api_tool = tool_source(values["tool_id"], kind == "tool_access")
+    if kind == "tool_access" and not auth.server_mode():
+        raise HTTPException(409, "工具权限申请需要服务器模式")
+    if kind != "problem":
+        values["run_id"] = ""
     files = attachments or []
     if len(files) > MAX_FILES:
         raise HTTPException(422, f"最多上传 {MAX_FILES} 个附件")
@@ -293,6 +313,15 @@ async def create_requirement(
                   status="submitted", status_note="", created_at=stamp, updated_at=stamp)
     init_db()
     with connection() as db:
+        if kind == "tool_access":
+            member = db.execute("SELECT status FROM users WHERE id=? FOR UPDATE", (user["id"],)).fetchone()
+            if not member or member["status"] != "active":
+                raise HTTPException(403, "当前用户不可申请权限")
+            if db.execute("SELECT 1 FROM tool_permissions WHERE user_id=? AND tool_id=?", (user["id"], api_tool)).fetchone():
+                raise HTTPException(409, "你已拥有该工具权限")
+            if db.execute("""SELECT 1 FROM requirements WHERE requester_user_id=? AND kind='tool_access'
+                AND tool_id=? AND status NOT IN ('done','declined')""", (user["id"], values["tool_id"])).fetchone():
+                raise HTTPException(409, "该工具已有待处理的权限申请")
         db.execute("""INSERT INTO requirements
         (id,kind,title,platform,service,tool_id,run_id,contact,requester,requester_user_id,description,source_location,
         desired_data,expected_result,input_conditions,usage_frequency,needed_by,status,status_note,created_at,updated_at)
@@ -380,12 +409,55 @@ def change_status(request_id: str, payload: StatusUpdate, request: Request) -> d
     stamp = now()
     note = payload.note.strip()
     with connection() as db:
-        get_requirement(db, request_id)
+        record = get_requirement(db, request_id)
+        if record["kind"] == "tool_access" and payload.status in {"done", "declined"}:
+            raise HTTPException(409, "请使用批准或拒绝操作处理权限申请")
+        if record["kind"] == "tool_access" and record["status"] in {"done", "declined"}:
+            raise HTTPException(409, "该权限申请已处理")
         db.execute("UPDATE requirements SET status=?,status_note=?,updated_at=? WHERE id=?",
                    (payload.status, note, stamp, request_id))
         db.execute("INSERT INTO requirement_events(id,requirement_id,status,note,created_at) VALUES (?,?,?,?,?)",
                    (uuid.uuid4().hex, request_id, payload.status, note, stamp))
     return {"id": request_id, "status": payload.status, "updated_at": stamp}
+
+
+class PermissionDecision(BaseModel):
+    approve: bool
+    note: str = Field(default="", max_length=1000)
+
+
+@router.post("/{request_id}/permission-decision")
+def decide_permission(request_id: str, payload: PermissionDecision, request: Request) -> dict:
+    local_only(request)
+    actor = auth.admin_from_request(request)
+    if not auth.server_mode():
+        raise HTTPException(409, "工具权限申请需要服务器模式")
+    stamp = now()
+    with auth.db() as db:
+        record = db.execute("SELECT * FROM requirements WHERE id=%s FOR UPDATE", (request_id,)).fetchone()
+        if not record or record["kind"] != "tool_access":
+            raise HTTPException(404, "找不到权限申请")
+        if record["status"] in {"done", "declined"}:
+            raise HTTPException(409, "该权限申请已处理")
+        member = db.execute("SELECT id,status,role FROM users WHERE id=%s FOR UPDATE",
+                            (record["requester_user_id"],)).fetchone()
+        if payload.approve:
+            _, _, api_tool = tool_source(record["tool_id"], True)
+            if not member or member["status"] != "active" or member["role"] != "member":
+                raise HTTPException(409, "申请人不是已启用的普通成员，不能开通权限")
+            db.execute("INSERT INTO tool_permissions(user_id,tool_id) VALUES (%s,%s) ON CONFLICT DO NOTHING",
+                       (member["id"], api_tool))
+            auth.audit(db, actor["id"], "approve_tool_access", "user", member["id"])
+        status = "done" if payload.approve else "declined"
+        note = ("已批准并开通工具权限" if payload.approve else "权限申请已拒绝")
+        if payload.note.strip():
+            note += "：" + payload.note.strip()
+        db.execute("UPDATE requirements SET status=%s,status_note=%s,updated_at=%s WHERE id=%s",
+                   (status, note, stamp, request_id))
+        db.execute("INSERT INTO requirement_events(id,requirement_id,status,note,created_at) VALUES (%s,%s,%s,%s,%s)",
+                   (uuid.uuid4().hex, request_id, status, note, stamp))
+        auth.audit(db, actor["id"], "approve" if payload.approve else "decline", "tool_access_request", request_id)
+    return {"id": request_id, "status": status, "updated_at": stamp}
 
 
 class CommentInput(BaseModel):
